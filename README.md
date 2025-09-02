@@ -22,6 +22,7 @@ node ace add @hschmaiske/jobs
 ```
 
 This command will:
+
 - Install the package and dependencies
 - Add the provider to your `adonisrc.ts`
 - Generate a `config/jobs.ts` configuration file
@@ -98,7 +99,7 @@ export default class SendEmailJob extends Job {
   async handle(payload: SendEmailPayload) {
     // Use injected services
     await this.mailService.send(payload.email, payload.template, {
-      userId: payload.userId
+      userId: payload.userId,
     })
   }
 }
@@ -125,12 +126,13 @@ export default class DailyCleanupJob extends Job {
 
   async handle() {
     this.logger.info('Starting daily cleanup')
-    
+
     // Clean up old records using Lucid
-    await this.db.from('temporary_files')
+    await this.db
+      .from('temporary_files')
       .where('created_at', '<', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
       .delete()
-    
+
     this.logger.info('Daily cleanup completed')
   }
 }
@@ -146,12 +148,12 @@ import job from '@hschmaiske/jobs/services/main'
 export default class UsersController {
   async register() {
     // Create user...
-    
+
     // Dispatch job
     await job.send('send-email', {
       userId: user.id,
       email: user.email,
-      template: 'welcome'
+      template: 'welcome',
     })
   }
 }
@@ -187,6 +189,7 @@ Jobs can be assigned to specific queues in three ways:
 ### Job Naming
 
 Job names are automatically generated from class names by:
+
 1. Removing the `Job` suffix
 2. Converting PascalCase to kebab-case
 3. Using lowercase
@@ -195,11 +198,11 @@ For example, `SendEmailJob` becomes `send-email`.
 
 ## CLI Commands
 
-| Command | Description |
-|---------|-------------|
-| `node ace make:job <name>` | Create a new queue job class |
-| `node ace make:cron <name>` | Create a new cron job class |
-| `node ace job:listen` | Process all registered jobs |
+| Command                     | Description                        |
+| --------------------------- | ---------------------------------- |
+| `node ace make:job <name>`  | Create a new queue job class       |
+| `node ace make:cron <name>` | Create a new cron job class        |
+| `node ace job:listen`       | Process all registered jobs        |
 | `node ace job:queue <name>` | Process jobs from a specific queue |
 
 ## Advanced Features
@@ -227,18 +230,19 @@ export default class ProcessUserDataJob extends Job {
 
   async handle(payload: { userId: string }) {
     this.logger.info(`Processing user data for ${payload.userId}`)
-    
+
     // Use injected services
     const user = await this.userService.find(payload.userId)
     await this.db.insertQuery().table('user_analytics').insert({
       user_id: user.id,
-      processed_at: new Date()
+      processed_at: new Date(),
     })
   }
 }
 ```
 
 All AdonisJS services are available for injection, including:
+
 - Database connections and models
 - Logger service
 - Custom services from your application
@@ -251,7 +255,7 @@ Jobs support all pg-boss options through static properties:
 ```typescript
 export default class ProcessPaymentJob extends Job {
   static queue = 'payments'
-  
+
   static workOptions = {
     batchSize: 1,
     teamSize: 3,
@@ -259,7 +263,7 @@ export default class ProcessPaymentJob extends Job {
     retryLimit: 1,
     expireInHours: 1,
   }
-  
+
   async handle(payload: PaymentPayload) {
     // Critical payment processing
   }
@@ -274,14 +278,14 @@ Cron jobs support scheduling options to prevent overlaps:
 export default class WeeklyReportJob extends Job {
   static cron = '0 8 * * 1' // Monday 8 AM
   static queue = 'reports'
-  
+
   static scheduleOptions = {
     singletonKey: 'weekly-report',
     singletonSeconds: 604800, // 1 week lock
     priority: 5,
     retryLimit: 1,
   }
-  
+
   async handle() {
     // Generate weekly reports
   }
@@ -369,7 +373,7 @@ const jobsConfig = defineConfig({
   user: 'username',
   password: 'password',
   schema: 'pgboss', // Separate schema for pg-boss tables
-  
+
   // Connection pool settings
   max: 10,
   connectionTimeoutMillis: 5000,
@@ -386,16 +390,16 @@ const jobsConfig = defineConfig({
   jobsPath: 'app/jobs',
   queues: ['default', 'emails', 'reports'],
   defaultQueue: 'default',
-  
+
   // Performance tuning
   pollingIntervalSeconds: 2,
   maintenanceIntervalSeconds: 120,
-  
+
   // Lifecycle management
   retentionDays: 7,
   archiveCompletedAfterSeconds: 43200,
   deleteAfterDays: 7,
-  
+
   // Default job settings
   retryLimit: 3,
   retryDelay: 30,
