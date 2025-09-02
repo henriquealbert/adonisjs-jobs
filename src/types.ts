@@ -4,7 +4,7 @@ import type { Job } from './job.js'
 export type {
   ConstructorOptions,
   SendOptions,
-  ScheduleOptions,
+  ScheduleOptions as PgBossScheduleOptions,
   JobWithMetadata,
   Job as PgBossJob,
   DatabaseOptions,
@@ -17,14 +17,28 @@ export type {
   JobOptions,
   JobInsert,
   JobStates,
-  WorkOptions,
+  WorkOptions as PgBossWorkOptions,
 } from 'pg-boss'
+
+/**
+ * Extended WorkOptions that includes queue property
+ */
+export interface WorkOptions extends PgBoss.WorkOptions {
+  queue?: string
+}
+
+/**
+ * Extended ScheduleOptions that includes queue property
+ */
+export interface ScheduleOptions extends PgBoss.ScheduleOptions {
+  queue?: string
+}
 
 /**
  * Job class constructor type
  */
 export interface JobClass {
-  new (...args: any[]): Job
+  new (...args: unknown[]): Job
 }
 
 export interface PgBossConfig extends PgBoss.ConstructorOptions {
