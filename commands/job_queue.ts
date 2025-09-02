@@ -31,7 +31,6 @@ export default class JobQueue extends BaseCommand {
     this.logger.info(`Concurrency: ${this.concurrency}, Batch: ${this.batchSize}`)
 
     try {
-      // Start processing the specific queue
       await pgBoss.work(
         this.name,
         {
@@ -45,8 +44,6 @@ export default class JobQueue extends BaseCommand {
             try {
               this.logger.debug(`⚙️  Job ${job.id}: ${JSON.stringify(job.data)}`)
 
-              // In a real app, you'd call your job handler here
-              // For now, we just mark it complete
               await pgBoss.complete(this.name, job.id)
               this.logger.success(`✅ Completed job ${job.id}`)
             } catch (error) {
@@ -63,7 +60,6 @@ export default class JobQueue extends BaseCommand {
       process.exit(1)
     }
 
-    // Graceful shutdown
     const shutdown = async () => {
       this.logger.info(`🛑 Shutting down queue worker for "${this.name}"...`)
       await pgBoss.stop()
@@ -73,7 +69,6 @@ export default class JobQueue extends BaseCommand {
     process.on('SIGINT', shutdown)
     process.on('SIGTERM', shutdown)
 
-    // Keep alive
     this.logger.info('✋ Press Ctrl+C to stop.')
     await new Promise(() => {})
   }

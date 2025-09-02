@@ -28,11 +28,9 @@ export default class JobListen extends BaseCommand {
     this.logger.info(`Concurrency: ${this.concurrency}`)
 
     try {
-      // Ensure pg-boss is started
       await pgBoss.start()
       this.logger.success('✅ Job worker started successfully')
 
-      // Monitor all activity
       if (this.verbose) {
         const monitorInterval = setInterval(async () => {
           try {
@@ -43,7 +41,6 @@ export default class JobListen extends BaseCommand {
           }
         }, 30000)
 
-        // Cleanup on shutdown
         const cleanup = () => {
           clearInterval(monitorInterval)
         }
@@ -58,7 +55,6 @@ export default class JobListen extends BaseCommand {
       process.exit(1)
     }
 
-    // Graceful shutdown
     const shutdown = async () => {
       this.logger.info('🛑 Gracefully shutting down job worker...')
       await pgBoss.stop()
@@ -68,7 +64,6 @@ export default class JobListen extends BaseCommand {
     process.on('SIGINT', shutdown)
     process.on('SIGTERM', shutdown)
 
-    // Keep alive
     this.logger.info('✋ Press Ctrl+C to stop.')
     await new Promise(() => {})
   }
