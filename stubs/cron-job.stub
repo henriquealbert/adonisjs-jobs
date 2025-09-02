@@ -6,6 +6,8 @@
   })
 }}}
 import { Job } from '@hschmaiske/jobs'
+import { inject } from '@adonisjs/core'
+import Logger from '@adonisjs/core/services/logger'
 
 export interface {{ entity.name }}Payload {
   // Define your cron job payload structure here
@@ -14,6 +16,7 @@ export interface {{ entity.name }}Payload {
   // options?: Record<string, any>
 }
 
+@inject()
 export default class {{ entity.name }}Job extends Job {
   // Required: Cron schedule (this job will auto-schedule on startup)
   static cron = '0 2 * * *'  // Daily at 2 AM - customize as needed
@@ -32,15 +35,22 @@ export default class {{ entity.name }}Job extends Job {
   //   priority: 5,             // Lower priority than user actions
   //   retryLimit: 2,           // Fewer retries for cron jobs
   // }
+
+  constructor(private logger: Logger) {
+    super()
+  }
   
   async handle(payload: {{ entity.name }}Payload) {
     // Implement your cron job logic here
+    this.logger.info('Running {{ entity.name | camelcase }} cron job')
     
     // Example: Perform scheduled maintenance
     // await performDailyCleanup()
     // await generateReports()
     // await syncData()
 
+    this.logger.info('{{ entity.name | camelcase }} cron job completed')
+    
     // Return success (job will be marked as completed)
     // Throw an error to mark job as failed and trigger retry
   }

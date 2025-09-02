@@ -6,6 +6,8 @@
   })
 }}}
 import { Job } from '@hschmaiske/jobs'
+import { inject } from '@adonisjs/core'
+import Logger from '@adonisjs/core/services/logger'
 
 export interface {{ entity.name }}Payload {
   // Define your job payload structure here
@@ -14,6 +16,7 @@ export interface {{ entity.name }}Payload {
   // email: string
 }
 
+@inject()
 export default class {{ entity.name }}Job extends Job {
   // Optional: Specify custom queue (autocomplete enabled if declared in config)
   // If not specified, uses defaultQueue from config (default: 'default')
@@ -31,9 +34,14 @@ export default class {{ entity.name }}Job extends Job {
   //   retryDelay: 60,       // Seconds between retries
   //   expireInHours: 2,     // Job expiration
   // }
+
+  constructor(private logger: Logger) {
+    super()
+  }
   
   async handle(payload: {{ entity.name }}Payload) {
     // Implement your queue job logic here
+    this.logger.info('Processing {{ entity.name | camelcase }} job', payload)
     
     // Example: Process the job
     // await someService.processData(payload)
