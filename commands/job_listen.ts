@@ -4,7 +4,7 @@ import type PgBoss from 'pg-boss'
 
 export default class JobListen extends BaseCommand {
   static commandName = 'job:listen'
-  static description = 'Process all jobs (queues and cron)'
+  static description = 'Process all registered jobs from all queues'
   static options: CommandOptions = {
     startApp: true,
     staysAlive: true,
@@ -51,8 +51,8 @@ export default class JobListen extends BaseCommand {
         process.on('SIGTERM', cleanup)
       }
 
-      this.logger.info('🔄 Worker is processing all jobs...')
-      this.logger.info('💡 Tip: Use job:queue <name> for specific queues or job:cron for cron-only')
+      this.logger.info('🔄 Worker is processing all registered jobs...')
+      this.logger.info('💡 Tip: Use job:queue <name> to process specific queues only')
     } catch (error) {
       this.logger.error('❌ Failed to start job worker:', error)
       process.exit(1)
