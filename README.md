@@ -123,7 +123,7 @@ export default async function sendEmailHandler(
   payload: SendEmailPayload,
   job: JobWithMetadata<SendEmailPayload>
 ) {
-  console.log('Processing email job:', payload)
+  // Your job logic here
 
   // Your job logic here
   // await emailService.send(payload.userId, payload.template)
@@ -139,7 +139,7 @@ export default async function sendEmailHandler(
 import type { JobWithMetadata } from '@hschmaiske/jobs'
 
 export default async function dailyCleanupHandler(payload: any, job: JobWithMetadata<any>) {
-  console.log('Running daily cleanup...')
+  // Your scheduled job logic here
 
   // Perform scheduled maintenance
   // await cleanupOldFiles()
