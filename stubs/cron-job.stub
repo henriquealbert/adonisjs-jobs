@@ -19,13 +19,7 @@ export default async function {{ entity.name | camelcase }}Handler(
   job: JobWithMetadata<{{ entity.name }}Payload>
 ) {
   // Implement your cron job logic here
-  console.log(`Running scheduled {{ entity.name }} job:`, payload)
-  console.log('Job metadata:', {
-    id: job.id,
-    scheduledOn: job.startAfter,
-    priority: job.priority
-  })
-
+  
   // Example: Perform scheduled maintenance
   // await performDailyCleanup()
   // await generateReports()

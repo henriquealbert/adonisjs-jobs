@@ -19,13 +19,7 @@ export default async function {{ entity.name | camelcase }}Handler(
   job: JobWithMetadata<{{ entity.name }}Payload>
 ) {
   // Implement your queue job logic here
-  console.log(`Processing {{ entity.name }} job:`, payload)
-  console.log('Job metadata:', {
-    id: job.id,
-    retryCount: job.retryCount,
-    priority: job.priority
-  })
-
+  
   // Example: Process the job
   // await someService.processData(payload)
   
