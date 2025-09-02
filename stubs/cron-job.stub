@@ -1,0 +1,54 @@
+{{{
+  exports({
+    to: app.makePath('app/jobs', entity.path),
+    pattern: 'pascalcase',
+    suffix: '.ts'
+  })
+}}}
+import type { JobWithMetadata } from '@hschmaiske/jobs'
+
+export interface {{ entity.name }}Payload {
+  // Define your cron job payload structure here
+  // Example:
+  // type: 'daily' | 'weekly' | 'monthly'
+  // options?: Record<string, any>
+}
+
+export default async function {{ entity.name | camelcase }}Handler(
+  payload: {{ entity.name }}Payload,
+  job: JobWithMetadata<{{ entity.name }}Payload>
+) {
+  // Implement your cron job logic here
+  console.log(`Running scheduled {{ entity.name }} job:`, payload)
+  console.log('Job metadata:', {
+    id: job.id,
+    scheduledOn: job.startAfter,
+    priority: job.priority
+  })
+
+  // Example: Perform scheduled maintenance
+  // await performDailyCleanup()
+  // await generateReports()
+  // await syncData()
+
+  // Return success (job will be marked as completed)
+  // Throw an error to mark job as failed and trigger retry
+}
+
+/**
+ * To schedule this cron job, add this to your application startup:
+ * 
+ * import job from '@hschmaiske/jobs/services/main'
+ * 
+ * // Schedule to run daily at 9 AM
+ * await job.schedule('{{ entity.name | camelcase }}', '0 9 * * *', {
+ *   type: 'daily'
+ * })
+ * 
+ * // Or schedule with singleton key to prevent overlapping runs
+ * await job.schedule('{{ entity.name | camelcase }}', '0 9 * * *', {
+ *   type: 'daily'
+ * }, {
+ *   singletonKey: '{{ entity.name | camelcase }}-daily'
+ * })
+ */

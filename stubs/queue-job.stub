@@ -1,0 +1,34 @@
+{{{
+  exports({
+    to: app.makePath('app/jobs', entity.path),
+    pattern: 'pascalcase',
+    suffix: '.ts'
+  })
+}}}
+import type { JobWithMetadata } from '@hschmaiske/jobs'
+
+export interface {{ entity.name }}Payload {
+  // Define your job payload structure here
+  // Example:
+  // userId: string
+  // email: string
+}
+
+export default async function {{ entity.name | camelcase }}Handler(
+  payload: {{ entity.name }}Payload,
+  job: JobWithMetadata<{{ entity.name }}Payload>
+) {
+  // Implement your queue job logic here
+  console.log(`Processing {{ entity.name }} job:`, payload)
+  console.log('Job metadata:', {
+    id: job.id,
+    retryCount: job.retryCount,
+    priority: job.priority
+  })
+
+  // Example: Process the job
+  // await someService.processData(payload)
+  
+  // Return success (job will be marked as completed)
+  // Throw an error to mark job as failed and trigger retry
+}

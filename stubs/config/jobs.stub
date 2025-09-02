@@ -1,0 +1,37 @@
+{{{
+  exports({
+    to: app.configPath('jobs.ts')
+  })
+}}}
+import { defineConfig } from '@hschmaiske/jobs'
+import env from '#start/env'
+
+export default defineConfig({
+  // Reuse same DB connection as Lucid
+  host: env.get('DB_HOST'),
+  port: env.get('DB_PORT'),
+  user: env.get('DB_USER'), 
+  password: env.get('DB_PASSWORD'),
+  database: env.get('DB_DATABASE'),
+  
+  // pg-boss schema (separate from your app tables)
+  schema: 'pgboss',
+  
+  // Job Lifecycle Management
+  retentionDays: 7,                           // Keep completed jobs for 7 days
+  archiveCompletedAfterSeconds: 43200,        // Archive after 12 hours
+  deleteAfterDays: 7,                         // Delete archived jobs after 7 days
+  
+  // Performance Tuning
+  pollingIntervalSeconds: 2,                  // How often to poll for jobs
+  maintenanceIntervalSeconds: 120,            // Background maintenance interval
+  
+  // Monitoring & Observability
+  monitorStateIntervalSeconds: 60,            // Queue monitoring interval
+  
+  // Default Job Settings (can be overridden per-job)
+  retryLimit: 3,                              // Default retry attempts
+  retryDelay: 30,                             // Default retry delay (seconds)
+  retryBackoff: true,                         // Enable exponential backoff
+  expireInHours: 24,                          // Default job expiration
+})
