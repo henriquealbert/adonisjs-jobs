@@ -3,10 +3,10 @@
     to: app.configPath('jobs.ts')
   })
 }}}
-import { defineConfig } from '@hschmaiske/jobs'
+import { defineConfig, InferQueues } from '@hschmaiske/jobs'
 import env from '#start/env'
 
-export default defineConfig({
+const jobsConfig = defineConfig({
   // Reuse same DB connection as Lucid
   host: env.get('DB_HOST'),
   port: env.get('DB_PORT'),
@@ -16,6 +16,11 @@ export default defineConfig({
   
   // pg-boss schema (separate from your app tables)
   schema: 'pgboss',
+
+  // Auto-discovery settings
+  jobsPath: 'app/jobs',                       // Path to scan for job classes
+  queues: ['default', 'emails', 'reports'],  // Available queues for type safety
+  defaultQueue: 'default',                   // Default queue for jobs without static queue
   
   // Job Lifecycle Management
   retentionDays: 7,                           // Keep completed jobs for 7 days
@@ -26,12 +31,18 @@ export default defineConfig({
   pollingIntervalSeconds: 2,                  // How often to poll for jobs
   maintenanceIntervalSeconds: 120,            // Background maintenance interval
   
-  // Monitoring & Observability
-  monitorStateIntervalSeconds: 60,            // Queue monitoring interval
-  
   // Default Job Settings (can be overridden per-job)
   retryLimit: 3,                              // Default retry attempts
   retryDelay: 30,                             // Default retry delay (seconds)
   retryBackoff: true,                         // Enable exponential backoff
   expireInHours: 24,                          // Default job expiration
 })
+
+// Type-safe queue names - automatically inferred from config above
+declare module '@hschmaiske/jobs' {
+  interface JobQueues {
+    queues: InferQueues<typeof jobsConfig>
+  }
+}
+
+export default jobsConfig

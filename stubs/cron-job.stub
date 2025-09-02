@@ -1,11 +1,11 @@
 {{{
   exports({
     to: app.makePath('app/jobs', entity.path),
-    pattern: 'pascalcase',
-    suffix: '.ts'
+    pattern: 'snakecase',
+    suffix: '_job.ts'
   })
 }}}
-import type { JobWithMetadata } from '@hschmaiske/jobs'
+import { Job } from '@hschmaiske/jobs'
 
 export interface {{ entity.name }}Payload {
   // Define your cron job payload structure here
@@ -14,35 +14,45 @@ export interface {{ entity.name }}Payload {
   // options?: Record<string, any>
 }
 
-export default async function {{ entity.name | camelcase }}Handler(
-  payload: {{ entity.name }}Payload,
-  job: JobWithMetadata<{{ entity.name }}Payload>
-) {
-  // Implement your cron job logic here
+export default class {{ entity.name }}Job extends Job {
+  // Required: Cron schedule (this job will auto-schedule on startup)
+  static cron = '0 2 * * *'  // Daily at 2 AM - customize as needed
   
-  // Example: Perform scheduled maintenance
-  // await performDailyCleanup()
-  // await generateReports()
-  // await syncData()
+  // Optional: Specify custom queue (autocomplete enabled if declared in config)
+  // If not specified, uses defaultQueue from config (default: 'default')
+  // static queue = 'maintenance'
+  
+  // Optional: Override auto-generated job name
+  // static jobName = 'custom-cron-name'
+  
+  // Optional: All pg-boss schedule options in one object
+  // static scheduleOptions = {
+  //   singletonKey: '{{ entity.name | camelcase }}-daily',
+  //   singletonSeconds: 3600,  // Lock for 1 hour
+  //   priority: 5,             // Lower priority than user actions
+  //   retryLimit: 2,           // Fewer retries for cron jobs
+  // }
+  
+  async handle(payload: {{ entity.name }}Payload) {
+    // Implement your cron job logic here
+    
+    // Example: Perform scheduled maintenance
+    // await performDailyCleanup()
+    // await generateReports()
+    // await syncData()
 
-  // Return success (job will be marked as completed)
-  // Throw an error to mark job as failed and trigger retry
+    // Return success (job will be marked as completed)
+    // Throw an error to mark job as failed and trigger retry
+  }
 }
 
 /**
- * To schedule this cron job, add this to your application startup:
+ * This cron job will be automatically registered and scheduled on application startup.
+ * No manual registration needed!
  * 
- * import job from '@hschmaiske/jobs/services/main'
- * 
- * // Schedule to run daily at 9 AM
- * await job.schedule('{{ entity.name | camelcase }}', '0 9 * * *', {
- *   type: 'daily'
- * })
- * 
- * // Or schedule with singleton key to prevent overlapping runs
- * await job.schedule('{{ entity.name | camelcase }}', '0 9 * * *', {
- *   type: 'daily'
- * }, {
- *   singletonKey: '{{ entity.name | camelcase }}-daily'
- * })
+ * Cron syntax examples:
+ * - '0 2 * * *'     = Daily at 2 AM
+ * - '0 8 * * 1'     = Weekly on Monday at 8 AM  
+ * - '*/15 * * * *'  = Every 15 minutes
+ * - '0 0 1 * *'     = Monthly on the 1st at midnight
  */

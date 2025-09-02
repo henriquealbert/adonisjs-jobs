@@ -1,11 +1,11 @@
 {{{
   exports({
     to: app.makePath('app/jobs', entity.path),
-    pattern: 'pascalcase',
-    suffix: '.ts'
+    pattern: 'snakecase',
+    suffix: '_job.ts'
   })
 }}}
-import type { JobWithMetadata } from '@hschmaiske/jobs'
+import { Job } from '@hschmaiske/jobs'
 
 export interface {{ entity.name }}Payload {
   // Define your job payload structure here
@@ -14,15 +14,31 @@ export interface {{ entity.name }}Payload {
   // email: string
 }
 
-export default async function {{ entity.name | camelcase }}Handler(
-  payload: {{ entity.name }}Payload,
-  job: JobWithMetadata<{{ entity.name }}Payload>
-) {
-  // Implement your queue job logic here
+export default class {{ entity.name }}Job extends Job {
+  // Optional: Specify custom queue (autocomplete enabled if declared in config)
+  // If not specified, uses defaultQueue from config (default: 'default')
+  // static queue = 'emails'
   
-  // Example: Process the job
-  // await someService.processData(payload)
+  // Optional: Override auto-generated job name
+  // static jobName = 'custom-job-name'
   
-  // Return success (job will be marked as completed)
-  // Throw an error to mark job as failed and trigger retry
+  // Optional: All pg-boss work options in one object
+  // static workOptions = {
+  //   batchSize: 10,        // Process jobs in batches
+  //   teamSize: 5,          // Worker concurrency  
+  //   priority: 10,         // Higher = more important
+  //   retryLimit: 5,        // Max retry attempts
+  //   retryDelay: 60,       // Seconds between retries
+  //   expireInHours: 2,     // Job expiration
+  // }
+  
+  async handle(payload: {{ entity.name }}Payload) {
+    // Implement your queue job logic here
+    
+    // Example: Process the job
+    // await someService.processData(payload)
+    
+    // Return success (job will be marked as completed)
+    // Throw an error to mark job as failed and trigger retry
+  }
 }
