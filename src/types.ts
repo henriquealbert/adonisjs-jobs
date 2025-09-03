@@ -38,7 +38,7 @@ export interface ScheduleOptions extends PgBoss.ScheduleOptions {
  * Dispatchable job class constructor type
  */
 export interface JobClass {
-  new (...args: unknown[]): Dispatchable
+  new (...args: any[]): Dispatchable
 }
 
 export interface PgBossConfig extends PgBoss.ConstructorOptions {

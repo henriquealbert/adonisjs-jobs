@@ -90,7 +90,7 @@ export class JobManager {
    * @param options PgBoss send options
    */
   async dispatch<T extends Dispatchable>(
-    JobClass: new () => T,
+    JobClass: new (...args: any[]) => T,
     payload: Parameters<T['handle']>[0],
     options?: PgBoss.SendOptions
   ): Promise<string | null> {
@@ -106,7 +106,9 @@ export class JobManager {
    * CreateDatabaseJob -> 'create-database'
    * @internal
    */
-  private getJobName<T extends Dispatchable | Schedulable>(JobClass: new () => T): string {
+  private getJobName<T extends Dispatchable | Schedulable>(
+    JobClass: new (...args: any[]) => T
+  ): string {
     // Check for explicit jobName first
     const explicitName = (JobClass as unknown as { jobName?: string }).jobName
     if (explicitName) {
