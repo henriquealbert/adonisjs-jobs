@@ -39,16 +39,16 @@ export default class JobsProvider {
           const { JobWorkerManager } = await import('../src/job_worker_manager.js')
 
           const logger = await this.app.container.make('logger')
-          const fileScanner = await this.app.container.make(JobFileScanner)
-          const configExtractor = await this.app.container.make(JobConfigExtractor, [config])
-          const workerManager = await this.app.container.make(JobWorkerManager, [pgBoss, this.app])
-          const autoDiscovery = await this.app.container.make(JobAutoDiscovery, [
+          const fileScanner = new JobFileScanner()
+          const configExtractor = new JobConfigExtractor(config)
+          const workerManager = new JobWorkerManager(pgBoss, this.app)
+          const autoDiscovery = new JobAutoDiscovery(
             fileScanner,
             configExtractor,
             workerManager,
             config,
-            logger,
-          ])
+            logger
+          )
           await autoDiscovery.discover()
         } catch (error) {
           console.error('Jobs auto-discovery failed:', error)

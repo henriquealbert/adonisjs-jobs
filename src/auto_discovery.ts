@@ -3,9 +3,7 @@ import type { LoggerService } from '@adonisjs/core/types'
 import { JobFileScanner } from './job_file_scanner.js'
 import { JobConfigExtractor } from './job_config_extractor.js'
 import { JobWorkerManager } from './job_worker_manager.js'
-import { inject } from '@adonisjs/core'
 
-@inject()
 export class JobAutoDiscovery {
   constructor(
     private fileScanner: JobFileScanner,

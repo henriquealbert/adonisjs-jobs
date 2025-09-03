@@ -89,3 +89,9 @@ export type { JobQueues } from './jobs_types.js'
 export interface TypeSafeJobStatic {
   queue?: JobQueues['queues']
 }
+
+/**
+ * JobService type alias for better naming
+ * This is just a type alias for PgBoss, not a wrapper
+ */
+export type JobService = PgBoss

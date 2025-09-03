@@ -38,7 +38,7 @@ const jobsConfig = defineConfig({
   expireInHours: 24,                          // Default job expiration
 })
 
-// Define your queue names type automatically from config
-export type QueueNames = typeof jobsConfig.queues[number]
+// Define your queue names type automatically from config  
+export type QueueNames = NonNullable<typeof jobsConfig.queues>[number]
 
 export default jobsConfig
