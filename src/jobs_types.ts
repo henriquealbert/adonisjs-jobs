@@ -41,5 +41,10 @@
  * ```
  */
 export interface JobQueues {
+  queues?: never // This allows module augmentation to override the type
+}
+
+// Default fallback for when no augmentation is provided
+export interface DefaultJobQueues {
   queues: string
 }

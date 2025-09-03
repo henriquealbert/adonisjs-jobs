@@ -1,5 +1,5 @@
 import type { WorkOptions, ScheduleOptions } from 'pg-boss'
-import type { JobQueues } from './jobs_types.js'
+import type { JobQueues, DefaultJobQueues } from './jobs_types.js'
 
 export abstract class Job {
   /**
@@ -13,7 +13,9 @@ export abstract class Job {
    * Default: 'default'
    * Must match one of the queues defined in config/jobs.ts
    */
-  static queue?: JobQueues['queues']
+  static queue?: JobQueues['queues'] extends never
+    ? DefaultJobQueues['queues']
+    : JobQueues['queues']
 
   /**
    * Optional: Schedule this job to run on a cron schedule

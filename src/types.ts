@@ -1,6 +1,6 @@
 import type PgBoss from 'pg-boss'
 import { Job } from './job.js'
-import type { JobQueues } from './jobs_types.js'
+import type { JobQueues, DefaultJobQueues } from './jobs_types.js'
 
 export type {
   ConstructorOptions,
@@ -87,7 +87,7 @@ export type { JobQueues } from './jobs_types.js'
  * Type-safe Job interface for queue property
  */
 export interface TypeSafeJobStatic {
-  queue?: JobQueues['queues']
+  queue?: JobQueues['queues'] extends never ? DefaultJobQueues['queues'] : JobQueues['queues']
 }
 
 /**
