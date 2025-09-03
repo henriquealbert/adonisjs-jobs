@@ -23,10 +23,10 @@ const jobsConfig = defineConfig({
   queues: ['default', 'emails', 'reports'] as const,  // Available queues
   defaultQueue: 'default',                   // Default queue for jobs without static queue
   
-  // Job Lifecycle Management
-  retentionDays: 7,                           // Keep completed jobs for 7 days
+  // Job Lifecycle Management - Full Audit History
+  retentionDays: 7,                           // Keep completed jobs for 7 days  
   archiveCompletedAfterSeconds: 43200,        // Archive after 12 hours
-  deleteAfterDays: 7,                         // Delete archived jobs after 7 days
+  deleteAfterDays: 36500,                     // Keep archived jobs for ~100 years (effectively permanent)
   
   // Performance Tuning
   pollingIntervalSeconds: 2,                  // How often to poll for jobs
