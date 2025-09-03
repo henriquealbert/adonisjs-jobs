@@ -10,14 +10,10 @@ test.group('Types', () => {
   test('should have PgBossConfig interface', ({ assert }) => {
     const config: PgBossConfig = {
       connectionString: 'postgres://test:test@localhost:5432/test',
-      enabled: true,
-      autoStart: false,
       shutdownTimeoutMs: 5000,
     }
 
     assert.isString(config.connectionString)
-    assert.isBoolean(config.enabled)
-    assert.isBoolean(config.autoStart)
     assert.isNumber(config.shutdownTimeoutMs)
   })
 
@@ -27,16 +23,11 @@ test.group('Types', () => {
       // pg-boss specific options
       schema: 'custom_schema',
       max: 20,
-      // Our custom options
-      enabled: true,
-      autoStart: false,
     }
 
     assert.isString(config.connectionString)
     assert.isString(config.schema)
     assert.isNumber(config.max)
-    assert.isBoolean(config.enabled)
-    assert.isBoolean(config.autoStart)
   })
 
   test('should re-export pg-boss types correctly', ({ assert }) => {

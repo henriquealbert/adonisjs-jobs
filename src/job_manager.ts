@@ -47,10 +47,6 @@ export class JobManager {
       const PgBossClass = await import('pg-boss')
       this.#pgBoss = new PgBossClass.default(this.#config)
     }
-
-    if (this.#config.autoStart !== false) {
-      await this.start()
-    }
   }
 
   get instance(): PgBoss {

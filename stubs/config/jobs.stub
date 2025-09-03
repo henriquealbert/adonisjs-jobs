@@ -7,7 +7,7 @@ import { defineConfig } from '@hschmaiske/jobs'
 import env from '#start/env'
 
 const jobsConfig = defineConfig({
-  // Reuse same DB connection as Lucid
+  // Database Connection (reuse same DB connection as Lucid)
   host: env.get('DB_HOST'),
   port: env.get('DB_PORT'),
   user: env.get('DB_USER'), 
@@ -18,7 +18,8 @@ const jobsConfig = defineConfig({
   schema: 'pgboss',
 
   // Auto-discovery settings
-  jobsPath: 'app/jobs',                       // Path to scan for job classes
+  jobsPath: 'app/jobs',                       // Path to scan for dispatchable job classes (*_job.ts)
+  cronPath: 'app/cron',                       // Path to scan for schedulable cron classes (*_cron.ts)
   queues: ['default', 'emails', 'reports'] as const,  // Available queues
   defaultQueue: 'default',                   // Default queue for jobs without static queue
   
@@ -36,6 +37,9 @@ const jobsConfig = defineConfig({
   retryDelay: 30,                             // Default retry delay (seconds)
   retryBackoff: true,                         // Enable exponential backoff
   expireInHours: 24,                          // Default job expiration
+
+  // Graceful shutdown timeout
+  shutdownTimeoutMs: 10000,                  // 10 seconds timeout for graceful shutdown
 })
 
 // Approach 1: Manual type definition (recommended for reliability)

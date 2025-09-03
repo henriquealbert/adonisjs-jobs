@@ -6,16 +6,12 @@ test.group('defineConfig', () => {
   test('should return the same config object', ({ assert }) => {
     const config: PgBossConfig = {
       connectionString: 'postgres://test:test@localhost:5432/test',
-      enabled: true,
-      autoStart: false,
     }
 
     const result = defineConfig(config)
 
     assert.deepEqual(result, config)
     assert.equal(result.connectionString, config.connectionString)
-    assert.equal(result.enabled, config.enabled)
-    assert.equal(result.autoStart, config.autoStart)
   })
 
   test('should work with empty config', ({ assert }) => {
@@ -33,8 +29,6 @@ test.group('defineConfig', () => {
       schema: 'custom_schema',
       max: 15,
       // Our extensions
-      enabled: true,
-      autoStart: true,
       shutdownTimeoutMs: 10000,
     }
 
@@ -43,8 +37,6 @@ test.group('defineConfig', () => {
     assert.equal(result.connectionString, config.connectionString)
     assert.equal(result.schema, config.schema)
     assert.equal(result.max, config.max)
-    assert.equal(result.enabled, config.enabled)
-    assert.equal(result.autoStart, config.autoStart)
     assert.equal(result.shutdownTimeoutMs, config.shutdownTimeoutMs)
   })
 
@@ -52,11 +44,9 @@ test.group('defineConfig', () => {
     // This is mainly a compile-time test
     const config = defineConfig({
       connectionString: 'postgres://test:test@localhost:5432/test',
-      enabled: true,
     })
 
     // TypeScript should infer the correct return type
     assert.isString(config.connectionString)
-    assert.isBoolean(config.enabled)
   })
 })

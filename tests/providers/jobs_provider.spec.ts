@@ -96,7 +96,6 @@ test.group('JobsProvider', () => {
   test('should handle production environment', ({ assert }) => {
     const jobsConfig: PgBossConfig = {
       connectionString: 'postgres://test:test@localhost:5432/test',
-      enabled: false, // Disable auto-discovery to avoid import issues
     }
     const app = createMockApp('production', { jobs: jobsConfig })
     const provider = new JobsProvider(app)
@@ -109,7 +108,7 @@ test.group('JobsProvider', () => {
     const environments = ['development', 'staging', 'production']
 
     environments.forEach((env) => {
-      const jobsConfig: PgBossConfig = { enabled: false }
+      const jobsConfig: PgBossConfig = {}
       const app = createMockApp(env, { jobs: jobsConfig })
       const provider = new JobsProvider(app)
 
@@ -153,7 +152,6 @@ test.group('JobsProvider', () => {
     const jobsConfig: PgBossConfig = {
       connectionString: 'postgres://user:pass@localhost:5432/db',
       schema: 'custom_jobs',
-      enabled: true,
     }
     const app = createMockApp('production', { jobs: jobsConfig })
     const provider = new JobsProvider(app)
