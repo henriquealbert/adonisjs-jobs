@@ -38,7 +38,19 @@ const jobsConfig = defineConfig({
   expireInHours: 24,                          // Default job expiration
 })
 
-// Define your queue names type automatically from config  
+// Approach 1: Manual type definition (recommended for reliability)
 export type QueueNames = NonNullable<typeof jobsConfig.queues>[number]
+
+// Approach 2: Module augmentation for automatic inference (optional)
+// Uncomment the lines below to enable automatic type inference:
+/*
+import type { InferQueues } from '@hschmaiske/jobs'
+
+declare module '@hschmaiske/jobs' {
+  interface JobQueues {
+    queues: InferQueues<typeof jobsConfig>
+  }
+}
+*/
 
 export default jobsConfig

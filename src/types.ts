@@ -95,3 +95,10 @@ export interface TypeSafeJobStatic {
  * This is just a type alias for PgBoss, not a wrapper
  */
 export type JobService = PgBoss
+
+/**
+ * Helper type to infer queue names from config
+ */
+export type InferQueues<T extends PgBossConfig> = T['queues'] extends readonly string[]
+  ? T['queues'][number]
+  : string

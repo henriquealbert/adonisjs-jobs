@@ -293,7 +293,11 @@ export default class WeeklyReportJob extends Job {
 
 ### Type-Safe Queues
 
-Define queues once in configuration and get autocomplete everywhere:
+Define queues once in configuration and get type safety everywhere. Two approaches are available:
+
+#### Approach 1: Manual Type Definition (Recommended)
+
+Simple and reliable type definition that always works:
 
 ```typescript
 // config/jobs.ts
@@ -301,7 +305,7 @@ const jobsConfig = defineConfig({
   queues: ['default', 'emails', 'payments', 'reports'] as const,
 })
 
-// Define your queue names type automatically from config
+// Define your queue names type
 export type QueueNames = NonNullable<typeof jobsConfig.queues>[number]
 
 export default jobsConfig
@@ -313,7 +317,38 @@ import { Job } from '@hschmaiske/jobs'
 import type { QueueNames } from '#config/jobs'
 
 export default class SendEmailJob extends Job {
-  static queue: QueueNames = 'emails' // ✅ Type-safe queue assignment
+  static queue: QueueNames = 'emails' // ✅ Type-safe with autocomplete
+}
+```
+
+#### Approach 2: Module Augmentation (Advanced)
+
+Automatic type inference using TypeScript module augmentation:
+
+```typescript
+// config/jobs.ts
+import type { InferQueues } from '@hschmaiske/jobs'
+
+const jobsConfig = defineConfig({
+  queues: ['default', 'emails', 'payments', 'reports'] as const,
+})
+
+// Augment the module for automatic type inference
+declare module '@hschmaiske/jobs' {
+  interface JobQueues {
+    queues: InferQueues<typeof jobsConfig>
+  }
+}
+
+export default jobsConfig
+```
+
+```typescript
+// app/jobs/send_email_job.ts
+import { Job } from '@hschmaiske/jobs'
+
+export default class SendEmailJob extends Job {
+  static queue = 'emails' // ✅ Auto-inferred type with autocomplete!
 }
 ```
 

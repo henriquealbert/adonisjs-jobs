@@ -1,9 +1,10 @@
 /**
  * JobQueues interface for module augmentation
- * Users should manually define their queue types for better type safety
+ * Two approaches for better type safety:
  *
  * @example
  * ```typescript
+ * // Approach 1: Manual type definition (recommended for reliability)
  * // In your config/jobs.ts file
  * const jobsConfig = defineConfig({
  *   queues: ['default', 'emails', 'reports'] as const,
@@ -12,9 +13,30 @@
  *
  * // In your job classes
  * import type { QueueNames } from '#config/jobs'
- *
  * export default class SendEmailJob extends Job {
  *   static queue: QueueNames = 'emails' // ← Type-safe!
+ * }
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Approach 2: Module augmentation (automatic inference)
+ * // In your config/jobs.ts file
+ * import type { InferQueues } from '@hschmaiske/jobs'
+ *
+ * const jobsConfig = defineConfig({
+ *   queues: ['default', 'emails', 'reports'] as const,
+ * })
+ *
+ * declare module '@hschmaiske/jobs' {
+ *   interface JobQueues {
+ *     queues: InferQueues<typeof jobsConfig>
+ *   }
+ * }
+ *
+ * // In your job classes - queue will be auto-inferred!
+ * export default class SendEmailJob extends Job {
+ *   static queue = 'emails' // ← Auto-complete and type-safe!
  * }
  * ```
  */
