@@ -7,27 +7,21 @@ import {
   TestJobServiceInitializer,
 } from '../services/job_service_initializers.js'
 
-/**
- * Simple auto-discovery implementation for testing.
- * Single Responsibility: Provide no-op auto-discovery for test environments.
- */
 class NoOpAutoDiscovery extends JobAutoDiscoveryBase {
   async discover(): Promise<void> {
     // No-op for test environments
   }
 }
 
-/**
- * Factory for creating job services based on environment.
- * Following the Factory pattern and Open/Closed Principle.
- */
 export class EnvironmentJobServiceFactory extends JobServiceFactory {
   constructor(_app: ApplicationService) {
     super()
   }
 
   createJobService(app: ApplicationService): PgBoss {
-    const isTestEnvironment = app.getEnvironment() === 'test'
+    const environment = app.getEnvironment()
+    const nodeEnv = process.env.NODE_ENV
+    const isTestEnvironment = environment === 'test' || nodeEnv === 'test'
 
     if (isTestEnvironment) {
       const initializer = new TestJobServiceInitializer()
@@ -37,7 +31,6 @@ export class EnvironmentJobServiceFactory extends JobServiceFactory {
     const config = app.config.get<PgBossConfig>('jobs', {})
     const initializer = new ProductionJobServiceInitializer()
 
-    // Create a lazy-initialized wrapper to handle async initialization properly
     return this.createLazyPgBoss(() => initializer.initialize(app, config))
   }
 
@@ -54,7 +47,6 @@ export class EnvironmentJobServiceFactory extends JobServiceFactory {
       return pgBossInstance
     }
 
-    // Create a proxy that handles method calls by ensuring initialization
     return new Proxy({} as PgBoss, {
       get(target, prop) {
         if (typeof prop === 'string') {
@@ -83,10 +75,6 @@ export class EnvironmentJobServiceFactory extends JobServiceFactory {
   }
 }
 
-/**
- * Singleton factory that ensures single instance per container.
- * Following the Singleton pattern while maintaining testability.
- */
 export class SingletonJobServiceFactory {
   private static instance: PgBoss | null = null
 
