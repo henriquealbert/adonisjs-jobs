@@ -1,47 +1,29 @@
 import type { ApplicationService } from '@adonisjs/core/types'
-import type PgBoss from 'pg-boss'
 import type { PgBossConfig } from '../src/types.js'
-
-// Type alias for better naming
-export type JobService = PgBoss
-
-declare module '@adonisjs/core/types' {
-  interface ContainerBindings {
-    'pgboss': PgBoss
-    'hschmaiske/jobs': JobService
-  }
-}
+import type { JobManager } from '../src/job_manager.js'
 
 export default class JobsProvider {
-  #pgBoss: PgBoss | null = null
+  #jobManager: JobManager | null = null
 
   constructor(protected app: ApplicationService) {}
 
   register() {
     this.app.container.singleton('hschmaiske/jobs', async () => {
+      const { JobManager } = await import('../src/job_manager.js')
+
       const config = this.app.config.get<PgBossConfig>('jobs', {})
+      const logger = await this.app.container.make('logger')
 
-      const environment = this.app.getEnvironment()
-      const nodeEnv = process.env.NODE_ENV
-      const isTestEnvironment = environment === 'test' || nodeEnv === 'test'
+      this.#jobManager = new JobManager(config, logger, this.app)
+      await this.#jobManager.initialize()
 
-      if (isTestEnvironment) {
-        const { PgBossMock } = await import('../src/mocks/pg_boss_mock.js')
-        this.#pgBoss = new PgBossMock() as unknown as PgBoss
-      } else {
-        const PgBossClass = await import('pg-boss')
-        this.#pgBoss = new PgBossClass.default(config)
-      }
-
-      return this.#pgBoss
+      return this.#jobManager
     })
-
-    this.app.container.alias('hschmaiske/jobs', 'pgboss')
   }
 
   async shutdown() {
-    if (this.#pgBoss) {
-      await this.#pgBoss.stop()
+    if (this.#jobManager) {
+      await this.#jobManager.closeAll()
     }
   }
 }
