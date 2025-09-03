@@ -78,11 +78,6 @@ export interface PgBossConfig extends PgBoss.ConstructorOptions {
   defaultQueue?: string
 }
 
-/**
- * Infer queue types from job configuration
- */
-export type InferQueues<T extends { queues?: readonly string[] }> =
-  T['queues'] extends readonly string[] ? T['queues'][number] : string
 
 /**
  * Re-export JobQueues interface for module augmentation

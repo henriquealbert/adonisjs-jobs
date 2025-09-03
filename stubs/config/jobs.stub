@@ -3,7 +3,7 @@
     to: app.configPath('jobs.ts')
   })
 }}}
-import { defineConfig, InferQueues } from '@hschmaiske/jobs'
+import { defineConfig } from '@hschmaiske/jobs'
 import env from '#start/env'
 
 const jobsConfig = defineConfig({
@@ -19,7 +19,7 @@ const jobsConfig = defineConfig({
 
   // Auto-discovery settings
   jobsPath: 'app/jobs',                       // Path to scan for job classes
-  queues: ['default', 'emails', 'reports'],  // Available queues for type safety
+  queues: ['default', 'emails', 'reports'] as const,  // Available queues
   defaultQueue: 'default',                   // Default queue for jobs without static queue
   
   // Job Lifecycle Management
@@ -38,11 +38,7 @@ const jobsConfig = defineConfig({
   expireInHours: 24,                          // Default job expiration
 })
 
-// Type-safe queue names - automatically inferred from config above
-declare module '@hschmaiske/jobs' {
-  interface JobQueues {
-    queues: InferQueues<typeof jobsConfig>
-  }
-}
+// Define your queue names type automatically from config
+export type QueueNames = typeof jobsConfig.queues[number]
 
 export default jobsConfig

@@ -4,14 +4,14 @@ A job queue and scheduler package for AdonisJS applications, built on [pg-boss](
 
 ## Overview
 
-@hschmaiske/jobs provides a clean, class-based approach to background job processing in AdonisJS applications. Jobs are automatically discovered from your `app/jobs/` directory, eliminating manual registration while maintaining full type safety and direct access to the pg-boss API.
+@hschmaiske/jobs provides a clean, class-based approach to background job processing in AdonisJS applications. Jobs are automatically discovered from your `app/jobs/` directory, eliminating manual registration while providing direct access to the pg-boss API.
 
 ## Key Features
 
 - **Auto-Discovery**: Jobs are automatically registered from `app/jobs/` - no manual setup required
 - **PostgreSQL Native**: Leverages your existing PostgreSQL database with ACID guarantees
 - **Zero Abstractions**: Direct pg-boss API access without wrapper methods
-- **Type Safety**: Full TypeScript support with inferred queue types and pg-boss options
+- **TypeScript Support**: Full TypeScript support and pg-boss options
 - **Cron Scheduling**: Built-in cron job support with overlap prevention
 - **AdonisJS Native**: Follows AdonisJS conventions with proper dependency injection
 
@@ -35,7 +35,7 @@ This command will:
 The installer creates a `config/jobs.ts` file that uses your existing database connection:
 
 ```typescript
-import { defineConfig, InferQueues } from '@hschmaiske/jobs'
+import { defineConfig } from '@hschmaiske/jobs'
 import env from '#start/env'
 
 const jobsConfig = defineConfig({
@@ -48,17 +48,13 @@ const jobsConfig = defineConfig({
   schema: 'pgboss',
 
   // Queue configuration
-  queues: ['default', 'emails', 'reports'],
+  queues: ['default', 'emails', 'reports'] as const,
   defaultQueue: 'default',
   jobsPath: 'app/jobs',
 })
 
-// Enable type-safe queue names
-declare module '@hschmaiske/jobs' {
-  interface JobQueues {
-    queues: InferQueues<typeof jobsConfig>
-  }
-}
+// Define your queue names type automatically from config
+export type QueueNames = typeof jobsConfig.queues[number]
 
 export default jobsConfig
 ```
@@ -83,6 +79,7 @@ node ace make:cron DailyCleanup
 import { Job } from '@hschmaiske/jobs'
 import { inject } from '@adonisjs/core'
 import MailService from '#services/mail_service'
+import type { QueueNames } from '#config/jobs'
 
 export interface SendEmailPayload {
   userId: string
@@ -92,6 +89,8 @@ export interface SendEmailPayload {
 
 @inject()
 export default class SendEmailJob extends Job {
+  static queue: QueueNames = 'emails' // ← Type-safe queue assignment
+
   constructor(private mailService: MailService) {
     super()
   }
@@ -299,14 +298,11 @@ Define queues once in configuration and get autocomplete everywhere:
 ```typescript
 // config/jobs.ts
 const jobsConfig = defineConfig({
-  queues: ['default', 'emails', 'payments', 'reports'],
+  queues: ['default', 'emails', 'payments', 'reports'] as const,
 })
 
-declare module '@hschmaiske/jobs' {
-  interface JobQueues {
-    queues: InferQueues<typeof jobsConfig>
-  }
-}
+// Define your queue names type automatically from config
+export type QueueNames = typeof jobsConfig.queues[number]
 
 export default jobsConfig
 ```
@@ -314,10 +310,10 @@ export default jobsConfig
 ```typescript
 // app/jobs/send_email_job.ts
 import { Job } from '@hschmaiske/jobs'
+import type { QueueNames } from '#config/jobs'
 
 export default class SendEmailJob extends Job {
-  static queue = 'emails' // ✅ Autocomplete available
-  // static queue = 'unknown' // ❌ TypeScript error - not in config!
+  static queue: QueueNames = 'emails' // ✅ Type-safe queue assignment
 }
 ```
 
