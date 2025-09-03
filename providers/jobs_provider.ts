@@ -1,7 +1,6 @@
 import type { ApplicationService } from '@adonisjs/core/types'
 import type PgBoss from 'pg-boss'
-import { EnvironmentJobServiceFactory } from '../src/factories/job_service_factory.js'
-import { JobLifecycleManager } from '../src/services/job_lifecycle_manager.js'
+import type { PgBossConfig } from '../src/types.js'
 
 // Type alias for better naming
 export type JobService = PgBoss
@@ -13,56 +12,36 @@ declare module '@adonisjs/core/types' {
   }
 }
 
-/**
- * Jobs Provider following SOLID principles.
- *
- * Single Responsibility: Manages job service registration in the IoC container
- * Open/Closed: Extensible through different factory implementations
- * Liskov Substitution: Uses interfaces and can substitute different implementations
- * Interface Segregation: Depends only on what it needs
- * Dependency Inversion: Depends on abstractions (factories) not concrete implementations
- */
 export default class JobsProvider {
-  private readonly jobServiceFactory: EnvironmentJobServiceFactory
-  private readonly lifecycleManager: JobLifecycleManager
+  #pgBoss: PgBoss | null = null
 
-  constructor(protected app: ApplicationService) {
-    this.jobServiceFactory = new EnvironmentJobServiceFactory(app)
-    this.lifecycleManager = new JobLifecycleManager(app)
-  }
+  constructor(protected app: ApplicationService) {}
 
-  /**
-   * Register job services in the IoC container.
-   * Uses factory pattern to create appropriate implementation based on environment.
-   */
-  register(): void {
-    // Register the core pgboss instance
-    this.app.container.singleton('pgboss', () => {
-      const pgBoss = this.jobServiceFactory.createJobService(this.app)
-      this.lifecycleManager.register(pgBoss)
-      return pgBoss
-    })
-
-    // Register the jobs service (alias for pgboss with auto-discovery)
+  register() {
     this.app.container.singleton('hschmaiske/jobs', async () => {
-      const pgBoss = await this.app.container.make('pgboss')
-      return pgBoss
+      const config = this.app.config.get<PgBossConfig>('jobs', {})
+
+      const environment = this.app.getEnvironment()
+      const nodeEnv = process.env.NODE_ENV
+      const isTestEnvironment = environment === 'test' || nodeEnv === 'test'
+
+      if (isTestEnvironment) {
+        const { PgBossMock } = await import('../src/mocks/pg_boss_mock.js')
+        this.#pgBoss = new PgBossMock() as unknown as PgBoss
+      } else {
+        const PgBossClass = await import('pg-boss')
+        this.#pgBoss = new PgBossClass.default(config)
+      }
+
+      return this.#pgBoss
     })
+
+    this.app.container.alias('hschmaiske/jobs', 'pgboss')
   }
 
-  /**
-   * Start all registered job services.
-   * Delegates to lifecycle manager for proper separation of concerns.
-   */
-  async start(): Promise<void> {
-    await this.lifecycleManager.startAll()
-  }
-
-  /**
-   * Shutdown all registered job services.
-   * Delegates to lifecycle manager for proper separation of concerns.
-   */
-  async shutdown(): Promise<void> {
-    await this.lifecycleManager.stopAll()
+  async shutdown() {
+    if (this.#pgBoss) {
+      await this.#pgBoss.stop()
+    }
   }
 }
