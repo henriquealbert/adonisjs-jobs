@@ -447,6 +447,142 @@ const jobsConfig = defineConfig({
 - **Rich Features**: Built-in support for scheduling, retries, and pub/sub
 - **Transactional**: Jobs can be created within database transactions
 
+## Testing
+
+Testing job processing is crucial for reliable applications. The package provides comprehensive mocking support for Japa testing framework in AdonisJS projects.
+
+### Test Setup
+
+The package automatically provides mock implementations in test environments. No additional configuration is required - just write your tests:
+
+```typescript
+// tests/functional/jobs/send_email_job.spec.ts
+import { test } from '@japa/runner'
+import SendEmailJob from '#app/jobs/send_email_job'
+import job from '@hschmaiske/jobs/services/main'
+
+test.group('SendEmailJob', () => {
+  test('should process email payload correctly', async ({ assert }) => {
+    const emailJob = new SendEmailJob()
+    const payload = {
+      userId: '123',
+      email: 'user@example.com',
+      template: 'welcome',
+    }
+
+    // Test job logic directly
+    await assert.doesNotReject(() => emailJob.handle(payload))
+  })
+
+  test('should dispatch job successfully', async ({ assert }) => {
+    // Jobs are automatically mocked in test environment
+    const jobId = await job.send('send-email', {
+      userId: '123',
+      email: 'user@example.com',
+      template: 'welcome',
+    })
+
+    assert.isString(jobId)
+    assert.equal(jobId, 'mock-job-id')
+  })
+})
+```
+
+### Testing Job Dispatch
+
+Test controllers that dispatch jobs without actually processing them:
+
+```typescript
+// tests/functional/users_controller.spec.ts
+import { test } from '@japa/runner'
+import { UserFactory } from '#database/factories/user_factory'
+
+test.group('Users Controller', () => {
+  test('should dispatch welcome email on registration', async ({ client, assert }) => {
+    const response = await client.post('/users').json({
+      email: 'new@example.com',
+      password: 'password123',
+    })
+
+    response.assertStatus(201)
+
+    // In test environment, jobs are mocked and don't actually execute
+    // Test the business logic separately in job-specific tests
+  })
+})
+```
+
+### Testing Cron Jobs
+
+Test cron job logic without relying on scheduling:
+
+```typescript
+// tests/functional/jobs/daily_cleanup_job.spec.ts
+import { test } from '@japa/runner'
+import DailyCleanupJob from '#app/jobs/daily_cleanup_job'
+import Database from '@adonisjs/lucid/services/db'
+
+test.group('DailyCleanupJob', () => {
+  test('should clean up old temporary files', async ({ assert }) => {
+    // Create test data
+    await Database.table('temporary_files').insert([
+      { name: 'old.txt', created_at: new Date('2023-01-01') },
+      { name: 'recent.txt', created_at: new Date() },
+    ])
+
+    // Execute job logic
+    const cleanupJob = new DailyCleanupJob()
+    await cleanupJob.handle()
+
+    // Verify cleanup occurred
+    const remaining = await Database.from('temporary_files').select('*')
+    assert.lengthOf(remaining, 1)
+    assert.equal(remaining[0].name, 'recent.txt')
+  })
+})
+```
+
+### Mock Behavior
+
+In test environments, the package provides:
+
+- **Automatic Mocking**: All pg-boss methods return predictable mock responses
+- **No Side Effects**: Jobs don't actually execute or connect to queues
+- **Consistent Returns**: Methods like `send()` return `'mock-job-id'`
+- **Error Simulation**: Test error scenarios by mocking failures when needed
+
+### Custom Test Scenarios
+
+For advanced testing scenarios, you can test specific pg-boss interactions:
+
+```typescript
+test('should handle job retry logic', async ({ assert }) => {
+  // Test retry limits and backoff strategies
+  const jobOptions = {
+    retryLimit: 3,
+    retryDelay: 30,
+    retryBackoff: true,
+  }
+
+  const jobId = await job.send('flaky-job', { data: 'test' }, jobOptions)
+
+  // In test environment, this returns mock data
+  assert.isString(jobId)
+
+  // Test your job's error handling directly
+  const flakyJob = new FlakyJob()
+  await assert.rejects(() => flakyJob.handle({ shouldFail: true }))
+})
+```
+
+### Testing Best Practices
+
+1. **Test Job Logic Separately**: Test the `handle()` method directly for business logic
+2. **Test Dispatch Integration**: Verify jobs are dispatched from controllers/services
+3. **Mock External Dependencies**: Use dependency injection to mock external services
+4. **Test Error Scenarios**: Ensure proper error handling and retry logic
+5. **Database Cleanup**: Use Japa's database cleanup features for consistent tests
+
 ## API Reference
 
 This package provides direct access to the pg-boss API. For detailed documentation on all available methods and options, see:
