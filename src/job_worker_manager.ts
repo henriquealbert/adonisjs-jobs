@@ -17,7 +17,7 @@ export class JobWorkerManager {
     await this.pgBoss.work(jobName, options, async (jobs: PgBoss.Job[]) => {
       for (const job of jobs) {
         const instance = await this.app.container.make(JobClass)
-        await this.app.container.call(instance, 'handle', [job.data])
+        await instance.handle(job.data)
       }
     })
   }
