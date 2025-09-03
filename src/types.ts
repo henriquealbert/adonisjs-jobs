@@ -78,7 +78,6 @@ export interface PgBossConfig extends PgBoss.ConstructorOptions {
   defaultQueue?: string
 }
 
-
 /**
  * Re-export JobQueues interface for module augmentation
  */

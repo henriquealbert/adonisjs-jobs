@@ -54,7 +54,7 @@ const jobsConfig = defineConfig({
 })
 
 // Define your queue names type automatically from config
-export type QueueNames = typeof jobsConfig.queues[number]
+export type QueueNames = (typeof jobsConfig.queues)[number]
 
 export default jobsConfig
 ```
@@ -302,7 +302,7 @@ const jobsConfig = defineConfig({
 })
 
 // Define your queue names type automatically from config
-export type QueueNames = typeof jobsConfig.queues[number]
+export type QueueNames = (typeof jobsConfig.queues)[number]
 
 export default jobsConfig
 ```
