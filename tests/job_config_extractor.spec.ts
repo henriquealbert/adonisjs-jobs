@@ -1,6 +1,7 @@
 import { test } from '@japa/runner'
 import { JobConfigExtractor } from '../src/job_config_extractor.js'
-import { Job } from '../src/job.js'
+import { Dispatchable } from '../src/dispatchable.js'
+import { Schedulable } from '../src/schedulable.js'
 import type { PgBossConfig } from '../src/types.js'
 
 test.group('JobConfigExtractor', () => {
@@ -11,7 +12,7 @@ test.group('JobConfigExtractor', () => {
     }
     const extractor = new JobConfigExtractor(config)
 
-    class TestJob extends Job {
+    class TestJob extends Dispatchable {
       async handle(_payload: unknown): Promise<void> {}
     }
 
@@ -19,9 +20,7 @@ test.group('JobConfigExtractor', () => {
 
     assert.equal(jobConfig.jobName, 'test')
     assert.equal(jobConfig.queue, 'default')
-    assert.isUndefined(jobConfig.cron)
     assert.isUndefined(jobConfig.workOptions)
-    assert.isUndefined(jobConfig.scheduleOptions)
   })
 
   test('extracts job config with custom properties', async ({ assert }) => {
@@ -31,12 +30,10 @@ test.group('JobConfigExtractor', () => {
     }
     const extractor = new JobConfigExtractor(config)
 
-    class SendEmailJob extends Job {
+    class SendEmailJob extends Dispatchable {
       static jobName = 'custom-send-email'
       static queue = 'emails'
-      static cron = '0 0 * * *'
       static workOptions = { batchSize: 5 }
-      static scheduleOptions = { priority: 10 }
 
       async handle(_payload: unknown): Promise<void> {}
     }
@@ -45,16 +42,14 @@ test.group('JobConfigExtractor', () => {
 
     assert.equal(jobConfig.jobName, 'custom-send-email')
     assert.equal(jobConfig.queue, 'emails')
-    assert.equal(jobConfig.cron, '0 0 * * *')
-    assert.deepEqual(jobConfig.workOptions, { queue: 'emails', batchSize: 5 })
-    assert.deepEqual(jobConfig.scheduleOptions, { queue: 'emails', priority: 10 })
+    assert.deepEqual(jobConfig.workOptions, { batchSize: 5 })
   })
 
   test('converts class name to kebab-case', async ({ assert }) => {
     const config: PgBossConfig = {}
     const extractor = new JobConfigExtractor(config)
 
-    class SendEmailNotificationJob extends Job {
+    class SendEmailNotificationJob extends Dispatchable {
       async handle(_payload: unknown): Promise<void> {}
     }
 
@@ -68,7 +63,7 @@ test.group('JobConfigExtractor', () => {
     }
     const extractor = new JobConfigExtractor(config)
 
-    class TestJob extends Job {
+    class TestJob extends Dispatchable {
       static queue = 'invalid-queue'
       async handle(_payload: unknown): Promise<void> {}
     }
@@ -85,7 +80,7 @@ test.group('JobConfigExtractor', () => {
     const config: PgBossConfig = {}
     const extractor = new JobConfigExtractor(config)
 
-    class TestJob extends Job {
+    class TestJob extends Dispatchable {
       static queue = 'any-queue'
       async handle(_payload: unknown): Promise<void> {}
     }
@@ -94,5 +89,42 @@ test.group('JobConfigExtractor', () => {
 
     assert.doesNotThrow(() => extractor.validateJobConfig(jobConfig, '/path/to/test_job.ts'))
     assert.equal(jobConfig.queue, 'any-queue')
+  })
+
+  test('extracts cron config with required schedule', async ({ assert }) => {
+    const config: PgBossConfig = {
+      defaultQueue: 'default',
+      queues: ['default', 'cron'],
+    }
+    const extractor = new JobConfigExtractor(config)
+
+    class DailyCleanupCron extends Schedulable {
+      static readonly schedule = '0 2 * * *'
+      static queue = 'cron'
+      static scheduleOptions = { priority: 5 }
+
+      async handle(): Promise<void> {}
+    }
+
+    const cronConfig = extractor.extractCronConfig(DailyCleanupCron)
+
+    assert.equal(cronConfig.jobName, 'daily-cleanup')
+    assert.equal(cronConfig.queue, 'cron')
+    assert.equal(cronConfig.schedule, '0 2 * * *')
+    assert.deepEqual(cronConfig.scheduleOptions, { priority: 5 })
+  })
+
+  test('throws error when cron class missing schedule', async ({ assert }) => {
+    const config: PgBossConfig = {}
+    const extractor = new JobConfigExtractor(config)
+
+    class InvalidCron extends Schedulable {
+      async handle(): Promise<void> {}
+    }
+
+    assert.throws(
+      () => extractor.extractCronConfig(InvalidCron),
+      'Schedulable class InvalidCron must have static schedule property'
+    )
   })
 })

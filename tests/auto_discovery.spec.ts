@@ -43,7 +43,7 @@ export default class TestJob {
 `
 
 test.group('JobAutoDiscovery', () => {
-  test('should handle importJobClass with non-existent file', async ({ assert }) => {
+  test('should handle non-existent job file gracefully', async ({ assert }) => {
     const app = createMockApp()
     const config: PgBossConfig = {}
     const logger = createMockLogger()
@@ -63,12 +63,12 @@ test.group('JobAutoDiscovery', () => {
     )
 
     // Test private method through reflection to increase coverage
-    const importJobClass = (
-      autoDiscovery as unknown as { importJobClass: (path: string) => Promise<unknown> }
-    ).importJobClass.bind(autoDiscovery)
+    const registerDispatchableFromFile = (
+      autoDiscovery as unknown as { registerDispatchableFromFile: (path: string) => Promise<void> }
+    ).registerDispatchableFromFile.bind(autoDiscovery)
 
-    // This will test lines 48-56 by trying to import a non-existent module
-    await assert.rejects(() => importJobClass('./non-existent-job.js'))
+    // This should throw an error for non-existent file
+    await assert.rejects(() => registerDispatchableFromFile('./non-existent-job.js'))
   })
 
   test('should handle importJobClass with invalid module structure', async ({ assert }) => {
@@ -281,17 +281,17 @@ test.group('JobAutoDiscovery', () => {
       logger
     )
 
-    // Access private method to test error handling (lines 41-44)
-    const registerJobFromFile = (
+    // Access private method to test error handling
+    const registerDispatchableFromFile = (
       autoDiscovery as unknown as {
-        registerJobFromFile: (filePath: string) => Promise<void>
+        registerDispatchableFromFile: (filePath: string) => Promise<void>
       }
-    ).registerJobFromFile.bind(autoDiscovery)
+    ).registerDispatchableFromFile.bind(autoDiscovery)
 
-    // This will trigger the error when trying to import a non-existent file and catch it
-    await assert.rejects(() => registerJobFromFile('./non-existent-job.js'), /Cannot find module/)
+    // This should throw an error for non-existent file
+    await assert.rejects(() => registerDispatchableFromFile('./non-existent-job.js'))
 
-    // The error should be logged even for import failures
+    // The error should be logged
     assert.isTrue(errorLogged)
   })
 })

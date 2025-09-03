@@ -2,6 +2,7 @@ import { test } from '@japa/runner'
 import type { ApplicationService, LoggerService } from '@adonisjs/core/types'
 import JobsProvider from '../../providers/jobs_provider.js'
 import { JobManager } from '../../src/job_manager.js'
+import { Dispatchable } from '../../src/dispatchable.js'
 import type { PgBossConfig } from '../../src/types.js'
 
 // Mock logger
@@ -70,7 +71,7 @@ test.group('JobsProvider', () => {
 
     // Override singleton to track registrations
     const originalSingleton = app.container.singleton
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     ;(app.container as any).singleton = (key: string, factory: unknown) => {
       if (key === 'hschmaiske/jobs') jobsRegistered = true
       return originalSingleton(key, factory as () => unknown | Promise<unknown>)
@@ -170,7 +171,7 @@ test.group('JobsProvider', () => {
     const jobs = await app.container.make('hschmaiske/jobs')
 
     // Should have JobManager interface
-    assert.isFunction((jobs as JobManager).send)
+    assert.isFunction((jobs as JobManager).dispatch)
     assert.isFunction((jobs as JobManager).start)
     assert.isFunction((jobs as JobManager).stop)
   })
@@ -194,6 +195,24 @@ test.group('JobsProvider', () => {
 
     // Raw instance should be same as instance getter
     assert.equal(rawPgBoss, (jobs as JobManager).instance)
+  })
+
+  test('should support type-safe dispatch method', async ({ assert }) => {
+    class TestJob extends Dispatchable {
+      async handle(payload: { message: string }) {
+        // Test job implementation
+      }
+    }
+
+    const app = createMockApp('test')
+    const provider = new JobsProvider(app)
+
+    provider.register()
+
+    const jobs = await app.container.make('hschmaiske/jobs')
+
+    // Should have dispatch method
+    assert.isFunction((jobs as JobManager).dispatch)
   })
 
   test('should handle factory dependencies correctly', ({ assert }) => {
