@@ -1,8 +1,6 @@
 {{{
   exports({
-    to: app.makePath('app/cron', entity.path),
-    pattern: 'snakecase',
-    suffix: '_cron.ts'
+    to: app.makePath('app/cron', 'example_cron.ts')
   })
 }}}
 import { Schedulable } from '@hschmaiske/jobs'
@@ -10,7 +8,7 @@ import { inject } from '@adonisjs/core'
 import Logger from '@adonisjs/core/services/logger'
 
 @inject()
-export default class {{ entity.name }}Cron extends Schedulable {
+export default class ExampleCron extends Schedulable {
   // Required: Cron schedule (this job will auto-schedule on startup)
   static readonly schedule = '0 2 * * *'  // Daily at 2 AM - customize as needed
   
@@ -18,12 +16,12 @@ export default class {{ entity.name }}Cron extends Schedulable {
   // If not specified, uses defaultQueue from config (default: 'default')
   // static queue = 'maintenance'
   
-  // Optional: Override auto-generated job name
-  // static jobName = 'custom-cron-name'
+  // Optional: Override auto-generated job name (default: 'example')
+  // static jobName = 'daily-cleanup'
   
   // Optional: All pg-boss schedule options in one object
   // static scheduleOptions = {
-  //   singletonKey: '{{ entity.name | camelcase }}-daily',
+  //   singletonKey: 'daily-cleanup',
   //   singletonSeconds: 3600,  // Lock for 1 hour
   //   priority: 5,             // Lower priority than user actions
   //   retryLimit: 2,           // Fewer retries for cron jobs
@@ -35,14 +33,14 @@ export default class {{ entity.name }}Cron extends Schedulable {
   
   async handle() {
     // Implement your cron job logic here (no payload for scheduled jobs)
-    this.logger.info('Running {{ entity.name | camelcase }} cron job')
+    this.logger.info('Running daily cleanup cron job')
     
     // Example: Perform scheduled maintenance
-    // await performDailyCleanup()
-    // await generateReports()
-    // await syncData()
+    // await this.cleanupExpiredTokens()
+    // await this.generateDailyReports()
+    // await this.optimizeDatabaseIndexes()
 
-    this.logger.info('{{ entity.name | camelcase }} cron job completed')
+    this.logger.info('Daily cleanup cron job completed')
     
     // Return success (job will be marked as completed)
     // Throw an error to mark job as failed and trigger retry

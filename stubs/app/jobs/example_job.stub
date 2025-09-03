@@ -1,28 +1,24 @@
 {{{
   exports({
-    to: app.makePath('app/jobs', entity.path),
-    pattern: 'snakecase',
-    suffix: '_job.ts'
+    to: app.makePath('app/jobs', 'example_job.ts')
   })
 }}}
 import { Dispatchable } from '@hschmaiske/jobs'
 import { inject } from '@adonisjs/core'
 import Logger from '@adonisjs/core/services/logger'
 
-export interface {{ entity.name }}Payload {
-  // Define your job payload structure here
-  // Example:
-  // userId: string
-  // email: string
+export interface ExampleJobPayload {
+  userId: string
+  email: string
 }
 
 @inject()
-export default class {{ entity.name }}Job extends Dispatchable {
+export default class ExampleJob extends Dispatchable {
   // Optional: Specify custom queue (autocomplete enabled if declared in config)
   // If not specified, uses defaultQueue from config (default: 'default')
   // static queue = 'emails'
   
-  // Optional: Override auto-generated job name
+  // Optional: Override auto-generated job name (default: 'example')
   // static jobName = 'custom-job-name'
   
   // Optional: All pg-boss work options in one object
@@ -39,12 +35,12 @@ export default class {{ entity.name }}Job extends Dispatchable {
     super()
   }
   
-  async handle(payload: {{ entity.name }}Payload) {
-    // Implement your queue job logic here
-    this.logger.info('Processing {{ entity.name | camelcase }} job', payload)
+  async handle(payload: ExampleJobPayload) {
+    // Implement your job logic here
+    this.logger.info('Processing example job', { userId: payload.userId })
     
-    // Example: Process the job
-    // await someService.processData(payload)
+    // Example: Send email
+    // await this.emailService.sendWelcomeEmail(payload.email)
     
     // Return success (job will be marked as completed)
     // Throw an error to mark job as failed and trigger retry
