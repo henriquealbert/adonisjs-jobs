@@ -21,7 +21,35 @@ export class JobFileScanner {
 
       return files
     } catch (error) {
-      return []
+      return this.handleScanError(dir, error)
+    }
+  }
+
+  private handleScanError(dir: string, error: unknown): string[] {
+    const nodeError = error as NodeJS.ErrnoException
+
+    // Handle expected filesystem errors gracefully
+    switch (nodeError.code) {
+      case 'ENOENT':
+        // Directory doesn't exist - this is expected and not an error
+        return []
+
+      case 'EACCES':
+        console.warn(`JobFileScanner: Permission denied accessing directory ${dir}`)
+        return []
+
+      case 'ENOTDIR':
+        console.warn(`JobFileScanner: Path is not a directory ${dir}`)
+        return []
+
+      default:
+        // Log unexpected filesystem errors with more context
+        console.warn(`JobFileScanner: Unexpected error scanning directory ${dir}:`, {
+          code: nodeError.code,
+          message: nodeError.message,
+          path: nodeError.path,
+        })
+        return []
     }
   }
 
