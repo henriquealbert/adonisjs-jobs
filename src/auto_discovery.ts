@@ -1,14 +1,14 @@
 import type { JobClass, PgBossConfig } from './types.js'
 import type { LoggerService } from '@adonisjs/core/types'
+import type { JobManager } from './job_manager.js'
 import { JobFileScanner } from './job_file_scanner.js'
 import { JobConfigExtractor } from './job_config_extractor.js'
-import { JobWorkerManager } from './job_worker_manager.js'
 
 export class JobAutoDiscovery {
   constructor(
     private fileScanner: JobFileScanner,
     private configExtractor: JobConfigExtractor,
-    private workerManager: JobWorkerManager,
+    private jobManager: JobManager,
     private config: PgBossConfig,
     private logger: LoggerService
   ) {}
@@ -32,12 +32,15 @@ export class JobAutoDiscovery {
       const jobConfig = this.configExtractor.extractJobConfig(JobClass)
       this.configExtractor.validateJobConfig(jobConfig, filePath)
 
-      await this.workerManager.registerWorker(jobConfig.jobName, JobClass, jobConfig.workOptions)
-      await this.workerManager.scheduleJobIfCron(
-        jobConfig.jobName,
-        jobConfig.cron,
-        jobConfig.scheduleOptions
-      )
+      await this.jobManager.work(jobConfig.jobName, JobClass, jobConfig.workOptions)
+      if (jobConfig.cron) {
+        await this.jobManager.schedule(
+          jobConfig.jobName,
+          jobConfig.cron,
+          {},
+          jobConfig.scheduleOptions
+        )
+      }
     } catch (error) {
       this.logger.error(`Failed to register job from ${filePath}:`, [error])
       throw error
