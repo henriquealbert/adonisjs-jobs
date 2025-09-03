@@ -4,11 +4,11 @@ A job queue and scheduler package for AdonisJS applications, built on [pg-boss](
 
 ## Overview
 
-@hschmaiske/jobs provides a clean, class-based approach to background job processing in AdonisJS applications. Jobs are automatically discovered from your `app/jobs/` directory, eliminating manual registration while providing direct access to the pg-boss API.
+@hschmaiske/jobs provides a clean, class-based approach to background job processing in AdonisJS applications with separate base classes for dispatchable jobs and scheduled cron tasks. Jobs are automatically discovered from your `app/jobs/` and `app/cron/` directories, eliminating manual registration while providing direct access to the pg-boss API.
 
 ## Key Features
 
-- **Auto-Discovery**: Jobs are automatically registered from `app/jobs/` - no manual setup required
+- **Auto-Discovery**: Jobs and cron tasks are automatically discovered from `app/jobs/` and `app/cron/` - no manual setup required
 - **PostgreSQL Native**: Leverages your existing PostgreSQL database with ACID guarantees
 - **Zero Abstractions**: Direct pg-boss API access without wrapper methods
 - **TypeScript Support**: Full TypeScript support and pg-boss options
@@ -26,6 +26,8 @@ This command will:
 - Install the package and dependencies
 - Add the provider to your `adonisrc.ts`
 - Generate a `config/jobs.ts` configuration file
+- Create `app/jobs/` and `app/cron/` directories with example files
+- Configure TypeScript paths for `#jobs/*` and `#cron/*` imports
 - Register CLI commands for job management
 
 ## Quick Start
@@ -51,6 +53,7 @@ const jobsConfig = defineConfig({
   queues: ['default', 'emails', 'reports'] as const,
   defaultQueue: 'default',
   jobsPath: 'app/jobs',
+  cronPath: 'app/cron',
 })
 
 // Define your queue names type automatically from config
@@ -73,10 +76,10 @@ node ace make:cron DailyCleanup
 
 ### 3. Implementing Job Logic
 
-**Queue Job** (`app/jobs/send_email_job.ts`):
+**Dispatchable Job** (`app/jobs/send_email_job.ts`):
 
 ```typescript
-import { Job } from '@hschmaiske/jobs'
+import { Dispatchable } from '@hschmaiske/jobs'
 import { inject } from '@adonisjs/core'
 import MailService from '#services/mail_service'
 import type { QueueNames } from '#config/jobs'
@@ -88,7 +91,7 @@ export interface SendEmailPayload {
 }
 
 @inject()
-export default class SendEmailJob extends Job {
+export default class SendEmailJob extends Dispatchable {
   static queue: QueueNames = 'emails' // ← Type-safe queue assignment
 
   constructor(private mailService: MailService) {
@@ -104,17 +107,17 @@ export default class SendEmailJob extends Job {
 }
 ```
 
-**Cron Job** (`app/jobs/daily_cleanup_job.ts`):
+**Schedulable Cron Task** (`app/cron/daily_cleanup_cron.ts`):
 
 ```typescript
-import { Job } from '@hschmaiske/jobs'
+import { Schedulable } from '@hschmaiske/jobs'
 import { inject } from '@adonisjs/core'
 import Database from '@adonisjs/lucid/services/db'
 import Logger from '@adonisjs/core/services/logger'
 
 @inject()
-export default class DailyCleanupJob extends Job {
-  static cron = '0 2 * * *' // Daily at 2 AM
+export default class DailyCleanupCron extends Schedulable {
+  static readonly schedule = '0 2 * * *' // Daily at 2 AM
 
   constructor(
     private db: Database,
@@ -139,17 +142,25 @@ export default class DailyCleanupJob extends Job {
 
 ### 4. Dispatching Jobs
 
-Jobs are dispatched using the direct pg-boss API:
+Jobs are dispatched using type-safe dispatch methods:
 
 ```typescript
 import job from '@hschmaiske/jobs/services/main'
+import SendEmailJob from '#jobs/send_email_job'
 
 export default class UsersController {
   async register() {
     // Create user...
 
-    // Dispatch job
-    await job.send('send-email', {
+    // Type-safe dispatch with auto-inferred payload type
+    await job.dispatch(SendEmailJob, {
+      userId: user.id,
+      email: user.email,
+      template: 'welcome',
+    })
+
+    // Or use the direct pg-boss API
+    await job.raw.send('send-email', {
       userId: user.id,
       email: user.email,
       template: 'welcome',
@@ -173,9 +184,14 @@ node ace job:queue maintenance --concurrency 2
 
 ## Core Concepts
 
-### Automatic Job Discovery
+### Automatic Discovery
 
-Jobs are automatically discovered and registered from your `app/jobs/` directory. Any file ending with `_job.ts` or `_job.js` is considered a job class and will be registered with pg-boss.
+Jobs and cron tasks are automatically discovered and registered:
+
+- **Dispatchable Jobs**: Located in `app/jobs/` directory, files ending with `_job.ts` or `_job.js`
+- **Schedulable Cron Tasks**: Located in `app/cron/` directory, files ending with `_cron.ts` or `_cron.js`
+
+All classes are automatically registered with pg-boss on application startup.
 
 ### Queue Assignment
 
@@ -189,11 +205,13 @@ Jobs can be assigned to specific queues in three ways:
 
 Job names are automatically generated from class names by:
 
-1. Removing the `Job` suffix
+1. Removing the `Job` or `Cron` suffix
 2. Converting PascalCase to kebab-case
 3. Using lowercase
 
-For example, `SendEmailJob` becomes `send-email`.
+For example:
+- `SendEmailJob` becomes `send-email`
+- `DailyCleanupCron` becomes `daily-cleanup`
 
 ## CLI Commands
 
@@ -211,14 +229,14 @@ For example, `SendEmailJob` becomes `send-email`.
 Jobs support full AdonisJS dependency injection using the `@inject()` decorator:
 
 ```typescript
-import { Job } from '@hschmaiske/jobs'
+import { Dispatchable } from '@hschmaiske/jobs'
 import { inject } from '@adonisjs/core'
 import UserService from '#services/user_service'
 import Database from '@adonisjs/lucid/services/db'
 import Logger from '@adonisjs/core/services/logger'
 
 @inject()
-export default class ProcessUserDataJob extends Job {
+export default class ProcessUserDataJob extends Dispatchable {
   constructor(
     private userService: UserService,
     private db: Database,
@@ -252,7 +270,7 @@ All AdonisJS services are available for injection, including:
 Jobs support all pg-boss options through static properties:
 
 ```typescript
-export default class ProcessPaymentJob extends Job {
+export default class ProcessPaymentJob extends Dispatchable {
   static queue = 'payments'
 
   static workOptions = {
@@ -269,13 +287,13 @@ export default class ProcessPaymentJob extends Job {
 }
 ```
 
-### Cron Job Configuration
+### Cron Task Configuration
 
-Cron jobs support scheduling options to prevent overlaps:
+Cron tasks support scheduling options to prevent overlaps:
 
 ```typescript
-export default class WeeklyReportJob extends Job {
-  static cron = '0 8 * * 1' // Monday 8 AM
+export default class WeeklyReportCron extends Schedulable {
+  static readonly schedule = '0 8 * * 1' // Monday 8 AM
   static queue = 'reports'
 
   static scheduleOptions = {
@@ -286,7 +304,7 @@ export default class WeeklyReportJob extends Job {
   }
 
   async handle() {
-    // Generate weekly reports
+    // Generate weekly reports (no payload for cron tasks)
   }
 }
 ```
@@ -313,10 +331,10 @@ export default jobsConfig
 
 ```typescript
 // app/jobs/send_email_job.ts
-import { Job } from '@hschmaiske/jobs'
+import { Dispatchable } from '@hschmaiske/jobs'
 import type { QueueNames } from '#config/jobs'
 
-export default class SendEmailJob extends Job {
+export default class SendEmailJob extends Dispatchable {
   static queue: QueueNames = 'emails' // ✅ Type-safe with autocomplete
 }
 ```
@@ -345,9 +363,9 @@ export default jobsConfig
 
 ```typescript
 // app/jobs/send_email_job.ts
-import { Job } from '@hschmaiske/jobs'
+import { Dispatchable } from '@hschmaiske/jobs'
 
-export default class SendEmailJob extends Job {
+export default class SendEmailJob extends Dispatchable {
   static queue = 'emails' // ✅ Auto-inferred type with autocomplete!
 }
 ```
@@ -359,14 +377,14 @@ The package provides zero abstractions over pg-boss. Access the full API directl
 ```typescript
 import job from '@hschmaiske/jobs/services/main'
 
-// All pg-boss methods are available
-await job.send('job-name', data, { priority: 10 })
-await job.schedule('recurring-job', '0 0 * * *', data)
-await job.publish('user-events', { userId: 123 })
+// All pg-boss methods are available through .raw
+await job.raw.send('job-name', data, { priority: 10 })
+await job.raw.schedule('recurring-job', '0 0 * * *', data)
+await job.raw.publish('user-events', { userId: 123 })
 
 // Monitoring and management
-const queueSize = await job.getQueueSize('emails')
-const jobDetails = await job.getJobById('uuid')
+const queueSize = await job.raw.getQueueSize('emails')
+const jobDetails = await job.raw.getJobById('uuid')
 ```
 
 For comprehensive API documentation, refer to the [pg-boss documentation](https://timgit.github.io/pg-boss/).
@@ -419,6 +437,7 @@ Configure job lifecycle and performance settings:
 const jobsConfig = defineConfig({
   // Job discovery
   jobsPath: 'app/jobs',
+  cronPath: 'app/cron',
   queues: ['default', 'emails', 'reports'],
   defaultQueue: 'default',
 
@@ -476,7 +495,7 @@ test.group('SendEmailJob', () => {
 
   test('should dispatch job successfully', async ({ assert }) => {
     // Jobs are automatically mocked in test environment
-    const jobId = await job.send('send-email', {
+    const jobId = await job.raw.send('send-email', {
       userId: '123',
       email: 'user@example.com',
       template: 'welcome',
@@ -564,7 +583,7 @@ test('should handle job retry logic', async ({ assert }) => {
     retryBackoff: true,
   }
 
-  const jobId = await job.send('flaky-job', { data: 'test' }, jobOptions)
+  const jobId = await job.raw.send('flaky-job', { data: 'test' }, jobOptions)
 
   // In test environment, this returns mock data
   assert.isString(jobId)
