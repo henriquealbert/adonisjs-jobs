@@ -1,6 +1,7 @@
 import type { ApplicationService } from '@adonisjs/core/types'
-import type { PgBossConfig } from '../src/types.js'
-import PgBoss from 'pg-boss'
+import type PgBoss from 'pg-boss'
+import { EnvironmentJobServiceFactory } from '../src/factories/job_service_factory.js'
+import { JobLifecycleManager } from '../src/services/job_lifecycle_manager.js'
 
 // Type alias for better naming
 export type JobService = PgBoss
@@ -12,66 +13,56 @@ declare module '@adonisjs/core/types' {
   }
 }
 
+/**
+ * Jobs Provider following SOLID principles.
+ *
+ * Single Responsibility: Manages job service registration in the IoC container
+ * Open/Closed: Extensible through different factory implementations
+ * Liskov Substitution: Uses interfaces and can substitute different implementations
+ * Interface Segregation: Depends only on what it needs
+ * Dependency Inversion: Depends on abstractions (factories) not concrete implementations
+ */
 export default class JobsProvider {
-  #pgBoss: PgBoss | null = null
+  private readonly jobServiceFactory: EnvironmentJobServiceFactory
+  private readonly lifecycleManager: JobLifecycleManager
 
-  constructor(protected app: ApplicationService) {}
+  constructor(protected app: ApplicationService) {
+    this.jobServiceFactory = new EnvironmentJobServiceFactory(app)
+    this.lifecycleManager = new JobLifecycleManager(app)
+  }
 
+  /**
+   * Register job services in the IoC container.
+   * Uses factory pattern to create appropriate implementation based on environment.
+   */
   register(): void {
     // Register the core pgboss instance
     this.app.container.singleton('pgboss', () => {
-      const config = this.app.config.get<PgBossConfig>('jobs', {})
-      this.#pgBoss = new PgBoss(config)
-      return this.#pgBoss
+      const pgBoss = this.jobServiceFactory.createJobService(this.app)
+      this.lifecycleManager.register(pgBoss)
+      return pgBoss
     })
 
-    // Register the jobs service (with auto-discovery)
+    // Register the jobs service (alias for pgboss with auto-discovery)
     this.app.container.singleton('hschmaiske/jobs', async () => {
       const pgBoss = await this.app.container.make('pgboss')
-      const config = this.app.config.get<PgBossConfig>('jobs', {})
-
-      // Only run auto-discovery if not in test environment and enabled
-      if (this.app.getEnvironment() !== 'test' && config.enabled !== false) {
-        try {
-          const { JobAutoDiscovery } = await import('../src/auto_discovery.js')
-          const { JobFileScanner } = await import('../src/job_file_scanner.js')
-          const { JobConfigExtractor } = await import('../src/job_config_extractor.js')
-          const { JobWorkerManager } = await import('../src/job_worker_manager.js')
-
-          const logger = await this.app.container.make('logger')
-          const fileScanner = new JobFileScanner()
-          const configExtractor = new JobConfigExtractor(config)
-          const workerManager = new JobWorkerManager(pgBoss, this.app)
-          const autoDiscovery = new JobAutoDiscovery(
-            fileScanner,
-            configExtractor,
-            workerManager,
-            config,
-            logger
-          )
-          await autoDiscovery.discover()
-        } catch (error) {
-          console.error('Jobs auto-discovery failed:', error)
-        }
-      }
-
       return pgBoss
     })
   }
 
+  /**
+   * Start all registered job services.
+   * Delegates to lifecycle manager for proper separation of concerns.
+   */
   async start(): Promise<void> {
-    if (this.#pgBoss && this.app.getEnvironment() !== 'test') {
-      const config = this.app.config.get<PgBossConfig>('jobs', {})
-
-      if (config.enabled !== false) {
-        await this.#pgBoss.start()
-      }
-    }
+    await this.lifecycleManager.startAll()
   }
 
+  /**
+   * Shutdown all registered job services.
+   * Delegates to lifecycle manager for proper separation of concerns.
+   */
   async shutdown(): Promise<void> {
-    if (this.#pgBoss) {
-      await this.#pgBoss.stop()
-    }
+    await this.lifecycleManager.stopAll()
   }
 }
