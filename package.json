@@ -19,7 +19,7 @@
   ],
   "exports": {
     ".": "./build/index.js",
-    "./types": "./build/src/types.js",
+    "./types": "./build/src/jobs_types.js",
     "./services/main": "./build/services/main.js",
     "./providers/jobs_provider": "./build/providers/jobs_provider.js",
     "./commands": "./build/commands/index.js"

@@ -1,6 +1,6 @@
 import type PgBoss from 'pg-boss'
 import { Job } from './job.js'
-import type { JobQueues } from './job.js'
+import type { JobQueues } from './jobs_types.js'
 
 export type {
   ConstructorOptions,
@@ -87,7 +87,7 @@ export type InferQueues<T extends { queues?: readonly string[] }> =
 /**
  * Re-export JobQueues interface for module augmentation
  */
-export type { JobQueues } from './job.js'
+export type { JobQueues } from './jobs_types.js'
 
 /**
  * Type-safe Job interface for queue property

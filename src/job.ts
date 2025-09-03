@@ -1,12 +1,5 @@
 import type { WorkOptions, ScheduleOptions } from 'pg-boss'
-
-/**
- * Module augmentation interface for type-safe queues
- * This gets automatically populated when users declare their config types
- */
-export interface JobQueues {
-  queues: string
-}
+import type { JobQueues } from './jobs_types.js'
 
 export abstract class Job {
   /**
