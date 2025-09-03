@@ -8,7 +8,7 @@ Since Job and Cron classes auto-register workers and schedules, you only need to
 // 1. Define dispatchable jobs (auto-register)
 export default class CreateDatabase extends Dispatchable {
   static queue = 'databases'
-  
+
   async handle({ name }: { name: string }) {
     // Create database logic
   }
@@ -18,7 +18,7 @@ export default class CreateDatabase extends Dispatchable {
 export default class OAuthTokensCleanup extends Schedulable {
   static readonly schedule = '0 * * * *' // Auto-scheduled hourly
   static queue = 'cron'
-  
+
   async handle() {
     // Cleanup logic (no payload for cron tasks)
   }
@@ -64,7 +64,7 @@ const health = await pgBoss.getQueueSize('my-queue')
 
 1. **Type Safety**: Full TypeScript support with auto-inferred payload types
 2. **Convenience**: Most common operations have wrapper methods
-3. **Flexibility**: Full PgBoss API available via `.raw` 
+3. **Flexibility**: Full PgBoss API available via `.raw`
 4. **Clean Separation**: Dispatchable jobs vs Schedulable cron tasks
 5. **Maintenance**: Less wrapper code to maintain when PgBoss updates
 6. **Future-proof**: New PgBoss features immediately available
@@ -79,7 +79,7 @@ const pgBoss = await app.container.make('pgboss')
 await pgBoss.send('job', data)
 
 // New way - type-safe dispatch (recommended)
-const jobs = await app.container.make('hschmaiske/jobs')  
+const jobs = await app.container.make('hschmaiske/jobs')
 await jobs.dispatch(MyJobClass, data)
 
 // New way - raw access (for advanced features)

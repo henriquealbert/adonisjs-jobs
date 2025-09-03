@@ -215,6 +215,7 @@ Job names are automatically generated from class names by:
 3. Using lowercase
 
 For example:
+
 - `SendEmailJob` becomes `send-email`
 - `DailyCleanupCron` becomes `daily-cleanup`
 
