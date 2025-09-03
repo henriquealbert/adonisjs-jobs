@@ -2,26 +2,21 @@ import { test } from '@japa/runner'
 import { JobAutoDiscovery } from '../src/auto_discovery.js'
 import { JobFileScanner } from '../src/job_file_scanner.js'
 import { JobConfigExtractor } from '../src/job_config_extractor.js'
-import { JobWorkerManager } from '../src/job_worker_manager.js'
-import type { ApplicationService } from '@adonisjs/core/types'
+import { JobManager } from '../src/job_manager.js'
+import type { ApplicationService, LoggerService } from '@adonisjs/core/types'
 import type { PgBossConfig } from '../src/types.js'
-import { PgBossMock } from '../src/mocks/pg_boss_mock.js'
-
-// Mock logger interface
-interface MockLogger {
-  info: (message: string, meta?: unknown[]) => void
-  error: (message: string, meta?: unknown[]) => void
-  warn: (message: string, meta?: unknown[]) => void
-  debug: (message: string, meta?: unknown[]) => void
-}
 
 // Create mock instances
-const createMockLogger = (): MockLogger => ({
-  info: () => {},
-  error: () => {},
-  warn: () => {},
-  debug: () => {},
-})
+const createMockLogger = (): LoggerService =>
+  ({
+    info: () => {},
+    error: () => {},
+    warn: () => {},
+    debug: () => {},
+    trace: () => {},
+    fatal: () => {},
+    child: () => createMockLogger(),
+  }) as unknown as LoggerService
 
 const createMockApp = (): ApplicationService =>
   ({
@@ -49,19 +44,20 @@ export default class TestJob {
 
 test.group('JobAutoDiscovery', () => {
   test('should handle importJobClass with non-existent file', async ({ assert }) => {
-    const pgBoss = new PgBossMock()
     const app = createMockApp()
     const config: PgBossConfig = {}
     const logger = createMockLogger()
 
+    const jobManager = new JobManager(config, logger, app)
+    await jobManager.initialize()
+
     const fileScanner = new JobFileScanner()
     const configExtractor = new JobConfigExtractor(config)
-    const workerManager = new JobWorkerManager(pgBoss, app)
 
     const autoDiscovery = new JobAutoDiscovery(
       fileScanner,
       configExtractor,
-      workerManager,
+      jobManager,
       config,
       logger
     )
@@ -76,19 +72,20 @@ test.group('JobAutoDiscovery', () => {
   })
 
   test('should handle importJobClass with invalid module structure', async ({ assert }) => {
-    const pgBoss = new PgBossMock()
     const app = createMockApp()
     const config: PgBossConfig = {}
     const logger = createMockLogger()
 
+    const jobManager = new JobManager(config, logger, app)
+    await jobManager.initialize()
+
     const fileScanner = new JobFileScanner()
     const configExtractor = new JobConfigExtractor(config)
-    const workerManager = new JobWorkerManager(pgBoss, app)
 
     const autoDiscovery = new JobAutoDiscovery(
       fileScanner,
       configExtractor,
-      workerManager,
+      jobManager,
       config,
       logger
     )
@@ -119,14 +116,14 @@ test.group('JobAutoDiscovery', () => {
     autoDiscoveryWithImport.importJobClass = originalImportJobClass
   })
 
-  test('should validate default queue configuration', ({ assert }) => {
-    const pgBoss = new PgBossMock()
+  test('should validate default queue configuration', async ({ assert }) => {
     const app = createMockApp()
     const logger = createMockLogger()
 
     const fileScanner = new JobFileScanner()
     const configExtractor = new JobConfigExtractor({})
-    const workerManager = new JobWorkerManager(pgBoss, app)
+    const jobManager = new JobManager({}, logger, app)
+    await jobManager.initialize()
 
     // Test with invalid defaultQueue - should throw error (lines 60-65)
     const invalidConfig: PgBossConfig = {
@@ -137,7 +134,7 @@ test.group('JobAutoDiscovery', () => {
     const autoDiscovery = new JobAutoDiscovery(
       fileScanner,
       configExtractor,
-      workerManager,
+      jobManager,
       invalidConfig,
       logger
     )
@@ -153,14 +150,14 @@ test.group('JobAutoDiscovery', () => {
     )
   })
 
-  test('should handle valid default queue configuration', ({ assert }) => {
-    const pgBoss = new PgBossMock()
+  test('should handle valid default queue configuration', async ({ assert }) => {
     const app = createMockApp()
     const logger = createMockLogger()
 
     const fileScanner = new JobFileScanner()
     const configExtractor = new JobConfigExtractor({})
-    const workerManager = new JobWorkerManager(pgBoss, app)
+    const jobManager = new JobManager({}, logger, app)
+    await jobManager.initialize()
 
     // Test with valid defaultQueue - should not throw
     const validConfig: PgBossConfig = {
@@ -171,7 +168,7 @@ test.group('JobAutoDiscovery', () => {
     const autoDiscovery = new JobAutoDiscovery(
       fileScanner,
       configExtractor,
-      workerManager,
+      jobManager,
       validConfig,
       logger
     )
@@ -184,14 +181,14 @@ test.group('JobAutoDiscovery', () => {
     assert.doesNotThrow(() => validateDefaultQueue())
   })
 
-  test('should handle config without queues defined', ({ assert }) => {
-    const pgBoss = new PgBossMock()
+  test('should handle config without queues defined', async ({ assert }) => {
     const app = createMockApp()
     const logger = createMockLogger()
 
     const fileScanner = new JobFileScanner()
     const configExtractor = new JobConfigExtractor({})
-    const workerManager = new JobWorkerManager(pgBoss, app)
+    const jobManager = new JobManager({}, logger, app)
+    await jobManager.initialize()
 
     // Test with defaultQueue but no queues array - should not throw (line 59 condition)
     const configNoQueues: PgBossConfig = {
@@ -202,7 +199,7 @@ test.group('JobAutoDiscovery', () => {
     const autoDiscovery = new JobAutoDiscovery(
       fileScanner,
       configExtractor,
-      workerManager,
+      jobManager,
       configNoQueues,
       logger
     )
@@ -215,14 +212,14 @@ test.group('JobAutoDiscovery', () => {
     assert.doesNotThrow(() => validateDefaultQueue())
   })
 
-  test('should handle config without defaultQueue', ({ assert }) => {
-    const pgBoss = new PgBossMock()
+  test('should handle config without defaultQueue', async ({ assert }) => {
     const app = createMockApp()
     const logger = createMockLogger()
 
     const fileScanner = new JobFileScanner()
     const configExtractor = new JobConfigExtractor({})
-    const workerManager = new JobWorkerManager(pgBoss, app)
+    const jobManager = new JobManager({}, logger, app)
+    await jobManager.initialize()
 
     // Test with no defaultQueue - should not throw (line 59 condition)
     const configNoDefault: PgBossConfig = {
@@ -233,7 +230,7 @@ test.group('JobAutoDiscovery', () => {
     const autoDiscovery = new JobAutoDiscovery(
       fileScanner,
       configExtractor,
-      workerManager,
+      jobManager,
       configNoDefault,
       logger
     )
@@ -247,12 +244,11 @@ test.group('JobAutoDiscovery', () => {
   })
 
   test('should handle job registration error from file', async ({ assert }) => {
-    const pgBoss = new PgBossMock()
     const app = createMockApp()
     const config: PgBossConfig = {}
     let errorLogged = false
 
-    const logger: MockLogger = {
+    const logger = {
       info: () => {},
       error: (message: string, meta?: unknown[]) => {
         errorLogged = true
@@ -261,14 +257,17 @@ test.group('JobAutoDiscovery', () => {
       },
       warn: () => {},
       debug: () => {},
-    }
+      trace: () => {},
+      fatal: () => {},
+      child: () => logger,
+    } as unknown as LoggerService
 
-    // Create a mock worker manager that throws an error during registration
-    const mockWorkerManager = {
-      registerWorker: async () => {
+    // Create a mock job manager that throws an error during registration
+    const mockJobManager = {
+      work: async () => {
         throw new Error('Registration failed')
       },
-      scheduleJobIfCron: async () => {},
+      schedule: async () => {},
     }
 
     const fileScanner = new JobFileScanner()
@@ -277,7 +276,7 @@ test.group('JobAutoDiscovery', () => {
     const autoDiscovery = new JobAutoDiscovery(
       fileScanner,
       configExtractor,
-      mockWorkerManager as unknown as typeof workerManager,
+      mockJobManager as unknown as JobManager,
       config,
       logger
     )

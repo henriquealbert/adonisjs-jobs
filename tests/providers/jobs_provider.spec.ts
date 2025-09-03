@@ -1,8 +1,20 @@
 import { test } from '@japa/runner'
-import type { ApplicationService } from '@adonisjs/core/types'
+import type { ApplicationService, LoggerService } from '@adonisjs/core/types'
 import JobsProvider from '../../providers/jobs_provider.js'
-import { PgBossMock } from '../../src/mocks/pg_boss_mock.js'
+import { JobManager } from '../../src/job_manager.js'
 import type { PgBossConfig } from '../../src/types.js'
+
+// Mock logger
+const createMockLogger = (): LoggerService =>
+  ({
+    info: () => {},
+    error: () => {},
+    warn: () => {},
+    debug: () => {},
+    trace: () => {},
+    fatal: () => {},
+    child: () => createMockLogger(),
+  }) as unknown as LoggerService
 
 // Simplified mock ApplicationService with proper singleton container functionality
 const createMockApp = (
@@ -11,6 +23,9 @@ const createMockApp = (
 ): ApplicationService => {
   const containerBindings = new Map<string, () => unknown | Promise<unknown>>()
   const singletonInstances = new Map<string, unknown>()
+
+  // Pre-register logger
+  containerBindings.set('logger', () => createMockLogger())
 
   return {
     getEnvironment: () => environment,
@@ -36,43 +51,45 @@ const createMockApp = (
         }
         return {}
       },
+      alias: (original: string, alias: string) => {
+        // Create alias by copying the factory
+        const factory = containerBindings.get(original)
+        if (factory) {
+          containerBindings.set(alias, factory)
+        }
+      },
     },
   } as unknown as ApplicationService
 }
 
 test.group('JobsProvider', () => {
-  test('should register services in IoC container', ({ assert }) => {
+  test('should register JobManager in IoC container', ({ assert }) => {
     const app = createMockApp('test')
     const provider = new JobsProvider(app)
-    let pgBossRegistered = false
     let jobsRegistered = false
 
     // Override singleton to track registrations
     const originalSingleton = app.container.singleton
-    app.container.singleton = (key: string, factory: () => unknown | Promise<unknown>) => {
-      if (key === 'pgboss') pgBossRegistered = true
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(app.container as any).singleton = (key: string, factory: unknown) => {
       if (key === 'hschmaiske/jobs') jobsRegistered = true
-      return originalSingleton(key, factory)
+      return originalSingleton(key, factory as () => unknown | Promise<unknown>)
     }
 
     provider.register()
 
-    assert.isTrue(pgBossRegistered)
     assert.isTrue(jobsRegistered)
   })
 
-  test('should create mock instances in test environment', async ({ assert }) => {
+  test('should create JobManager instance in test environment', async ({ assert }) => {
     const app = createMockApp('test')
     const provider = new JobsProvider(app)
 
     provider.register()
 
-    const pgBoss = await app.container.make('pgboss')
     const jobs = await app.container.make('hschmaiske/jobs')
 
-    assert.instanceOf(pgBoss, PgBossMock)
-    assert.instanceOf(jobs, PgBossMock)
-    assert.equal(pgBoss, jobs) // Should be the same instance
+    assert.instanceOf(jobs, JobManager)
   })
 
   test('should handle production environment', ({ assert }) => {
@@ -99,15 +116,7 @@ test.group('JobsProvider', () => {
     })
   })
 
-  test('should start lifecycle manager', async ({ assert }) => {
-    const app = createMockApp('test')
-    const provider = new JobsProvider(app)
-
-    // Should not throw during start
-    await assert.doesNotReject(() => provider.start())
-  })
-
-  test('should shutdown lifecycle manager', async ({ assert }) => {
+  test('should shutdown JobManager', async ({ assert }) => {
     const app = createMockApp('test')
     const provider = new JobsProvider(app)
 
@@ -121,7 +130,6 @@ test.group('JobsProvider', () => {
 
     // Complete lifecycle should work without errors
     provider.register()
-    await provider.start()
     await provider.shutdown()
 
     assert.isTrue(true) // If we reach here, lifecycle completed successfully
@@ -133,15 +141,11 @@ test.group('JobsProvider', () => {
 
     provider.register()
 
-    const pgBoss1 = await app.container.make('pgboss')
-    const pgBoss2 = await app.container.make('pgboss')
     const jobs1 = await app.container.make('hschmaiske/jobs')
     const jobs2 = await app.container.make('hschmaiske/jobs')
 
     // Should return same instances (singleton behavior)
-    assert.equal(pgBoss1, pgBoss2)
     assert.equal(jobs1, jobs2)
-    assert.equal(pgBoss1, jobs1) // Jobs should be alias for pgboss
   })
 
   test('should handle config-based initialization', ({ assert }) => {
@@ -163,17 +167,33 @@ test.group('JobsProvider', () => {
 
     provider.register()
 
-    const pgBoss = await app.container.make('pgboss')
     const jobs = await app.container.make('hschmaiske/jobs')
 
-    // Should have PgBoss-like interface
-    assert.isFunction((pgBoss as PgBossMock).send)
-    assert.isFunction((pgBoss as PgBossMock).start)
-    assert.isFunction((pgBoss as PgBossMock).stop)
+    // Should have JobManager interface
+    assert.isFunction((jobs as JobManager).send)
+    assert.isFunction((jobs as JobManager).start)
+    assert.isFunction((jobs as JobManager).stop)
+  })
 
-    assert.isFunction((jobs as PgBossMock).send)
-    assert.isFunction((jobs as PgBossMock).start)
-    assert.isFunction((jobs as PgBossMock).stop)
+  test('should provide access to raw PgBoss instance', async ({ assert }) => {
+    const app = createMockApp('test')
+    const provider = new JobsProvider(app)
+
+    provider.register()
+
+    const jobs = await app.container.make('hschmaiske/jobs')
+
+    // Should provide access to raw PgBoss instance
+    const rawPgBoss = (jobs as JobManager).raw
+    assert.isObject(rawPgBoss)
+
+    // Should have PgBoss methods
+    assert.isFunction(rawPgBoss.send)
+    assert.isFunction(rawPgBoss.start)
+    assert.isFunction(rawPgBoss.stop)
+
+    // Raw instance should be same as instance getter
+    assert.equal(rawPgBoss, (jobs as JobManager).instance)
   })
 
   test('should handle factory dependencies correctly', ({ assert }) => {
@@ -193,7 +213,6 @@ test.group('JobsProvider', () => {
 
     // Single Responsibility: Should only handle provider responsibilities
     assert.isFunction(provider.register)
-    assert.isFunction(provider.start)
     assert.isFunction(provider.shutdown)
 
     // Open/Closed: Should be extensible through factory pattern
