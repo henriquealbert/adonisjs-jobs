@@ -82,6 +82,7 @@ node ace make:cron DailyCleanup
 import { Dispatchable } from '@hschmaiske/jobs'
 import { inject } from '@adonisjs/core'
 import MailService from '#services/mail_service'
+import Logger from '@adonisjs/core/services/logger'
 import type { QueueNames } from '#config/jobs'
 
 export interface SendEmailPayload {
@@ -94,12 +95,16 @@ export interface SendEmailPayload {
 export default class SendEmailJob extends Dispatchable {
   static queue: QueueNames = 'emails' // ← Type-safe queue assignment
 
-  constructor(private mailService: MailService) {
+  constructor(
+    private mailService: MailService,
+    private logger: Logger
+  ) {
     super()
   }
 
   async handle(payload: SendEmailPayload) {
-    // Use injected services
+    // Use injected services with full dependency injection support
+    this.logger.info('Sending email', payload)
     await this.mailService.send(payload.email, payload.template, {
       userId: payload.userId,
     })
