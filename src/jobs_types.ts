@@ -2,7 +2,7 @@
  * Infer queue types from job configuration
  */
 export type InferJobQueues<T extends { queues?: readonly string[] }> =
-  T['queues'] extends readonly string[] ? { queues: T['queues'][number] } : { queues: string }
+  T['queues'] extends readonly string[] ? T['queues'][number] : string
 
 /**
  * JobQueues interface for module augmentation
@@ -11,7 +11,9 @@ export type InferJobQueues<T extends { queues?: readonly string[] }> =
  * @example
  * ```typescript
  * declare module '@hschmaiske/jobs/types' {
- *   export interface JobQueues extends InferJobQueues<typeof jobsConfig> {}
+ *   export interface JobQueues {
+ *     queues: InferJobQueues<typeof jobsConfig>
+ *   }
  * }
  * ```
  */
