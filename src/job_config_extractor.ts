@@ -1,29 +1,51 @@
-import type { JobClass, PgBossConfig, WorkOptions, ScheduleOptions } from './types.js'
+import type { PgBossConfig, WorkOptions, ScheduleOptions } from './types.js'
+import type { Dispatchable } from './dispatchable.js'
+import type { Schedulable } from './schedulable.js'
 
 export interface JobConfig {
   jobName: string
   queue: string
-  cron?: string
   workOptions?: WorkOptions
+}
+
+export interface CronConfig {
+  jobName: string
+  queue: string
+  schedule: string
   scheduleOptions?: ScheduleOptions
 }
 
 export class JobConfigExtractor {
   constructor(private config: PgBossConfig) {}
 
-  extractJobConfig(JobClass: JobClass): JobConfig {
+  extractJobConfig(JobClass: new () => Dispatchable): JobConfig {
     const jobName = this.getJobName(JobClass)
     const specifiedQueue = this.getJobQueue(JobClass)
     const queue = this.resolveQueue(specifiedQueue)
-    const cron = this.getJobCron(JobClass)
     const workOptions = this.getWorkOptions(JobClass)
-    const scheduleOptions = this.getScheduleOptions(JobClass)
 
     return {
       jobName,
       queue,
-      cron,
       workOptions,
+    }
+  }
+
+  extractCronConfig(CronClass: new () => Schedulable): CronConfig {
+    const jobName = this.getJobName(CronClass)
+    const specifiedQueue = this.getJobQueue(CronClass)
+    const queue = this.resolveQueue(specifiedQueue)
+    const schedule = this.getSchedule(CronClass)
+    const scheduleOptions = this.getScheduleOptions(CronClass)
+
+    if (!schedule) {
+      throw new Error(`Schedulable class ${CronClass.name} must have static schedule property`)
+    }
+
+    return {
+      jobName,
+      queue,
+      schedule,
       scheduleOptions,
     }
   }
@@ -36,66 +58,63 @@ export class JobConfigExtractor {
     }
   }
 
-  private getJobName(JobClass: JobClass): string {
+  validateCronConfig(config: CronConfig, filePath: string): void {
+    if (this.config.queues && !this.config.queues.includes(config.queue)) {
+      throw new Error(
+        `Invalid queue "${config.queue}" in ${filePath}. Available queues: ${this.config.queues.join(', ')}`
+      )
+    }
+  }
+
+  private getJobName(JobClass: new () => Dispatchable | Schedulable): string {
     if ('jobName' in JobClass && typeof JobClass.jobName === 'string') {
       return JobClass.jobName
     }
 
-    const className = JobClass.name
-    return className
-      .replace(/Job$/, '')
-      .replace(/([a-z])([A-Z])/g, '$1-$2')
+    // Convert class name to kebab-case
+    let name = JobClass.name
+    // Remove Job/Cron suffix
+    name = name.replace(/Job$/, '').replace(/Cron$/, '')
+    return name
+      .replace(/([A-Z])/g, '-$1')
       .toLowerCase()
+      .replace(/^-/, '')
   }
 
-  private getJobQueue(JobClass: JobClass): string | undefined {
+  private getJobQueue(JobClass: new () => Dispatchable | Schedulable): string | undefined {
     if ('queue' in JobClass && typeof JobClass.queue === 'string') {
       return JobClass.queue
     }
     return undefined
   }
 
-  private getJobCron(JobClass: JobClass): string | undefined {
-    if ('cron' in JobClass && typeof JobClass.cron === 'string') {
-      return JobClass.cron
+  private getSchedule(CronClass: new () => Schedulable): string | undefined {
+    if ('schedule' in CronClass && typeof CronClass.schedule === 'string') {
+      return CronClass.schedule
     }
     return undefined
   }
 
-  private getWorkOptions(JobClass: JobClass): WorkOptions | undefined {
-    const options: Partial<WorkOptions> = {}
-
-    if ('queue' in JobClass && typeof JobClass.queue === 'string') {
-      options.queue = JobClass.queue
-    }
-
+  private getWorkOptions(JobClass: new () => Dispatchable): WorkOptions | undefined {
     if (
       'workOptions' in JobClass &&
       typeof JobClass.workOptions === 'object' &&
       JobClass.workOptions
     ) {
-      Object.assign(options, JobClass.workOptions)
+      return JobClass.workOptions
     }
-
-    return Object.keys(options).length > 0 ? (options as WorkOptions) : undefined
+    return undefined
   }
 
-  private getScheduleOptions(JobClass: JobClass): ScheduleOptions | undefined {
-    const options: Partial<ScheduleOptions> = {}
-
-    if ('queue' in JobClass && typeof JobClass.queue === 'string') {
-      options.queue = JobClass.queue
-    }
-
+  private getScheduleOptions(CronClass: new () => Schedulable): ScheduleOptions | undefined {
     if (
-      'scheduleOptions' in JobClass &&
-      typeof JobClass.scheduleOptions === 'object' &&
-      JobClass.scheduleOptions
+      'scheduleOptions' in CronClass &&
+      typeof CronClass.scheduleOptions === 'object' &&
+      CronClass.scheduleOptions
     ) {
-      Object.assign(options, JobClass.scheduleOptions)
+      return CronClass.scheduleOptions
     }
-
-    return Object.keys(options).length > 0 ? (options as ScheduleOptions) : undefined
+    return undefined
   }
 
   private resolveQueue(specifiedQueue?: string): string {

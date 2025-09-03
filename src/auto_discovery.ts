@@ -1,6 +1,8 @@
-import type { JobClass, PgBossConfig } from './types.js'
+import type { PgBossConfig } from './types.js'
 import type { LoggerService } from '@adonisjs/core/types'
 import type { JobManager } from './job_manager.js'
+import type { Dispatchable } from './dispatchable.js'
+import type { Schedulable } from './schedulable.js'
 import { JobFileScanner } from './job_file_scanner.js'
 import { JobConfigExtractor } from './job_config_extractor.js'
 
@@ -16,40 +18,54 @@ export class JobAutoDiscovery {
   async discover(): Promise<void> {
     this.validateDefaultQueue()
 
+    // Discover dispatchable jobs
     const jobsPath = this.config.jobsPath || 'app/jobs'
     const jobFiles = await this.fileScanner.scanJobFiles(jobsPath)
-
     for (const jobFile of jobFiles) {
-      await this.registerJobFromFile(jobFile)
+      await this.registerDispatchableFromFile(jobFile)
+    }
+
+    // Discover schedulable cron jobs
+    const cronPath = this.config.cronPath || 'app/cron'
+    const cronFiles = await this.fileScanner.scanCronFiles(cronPath)
+    for (const cronFile of cronFiles) {
+      await this.registerSchedulableFromFile(cronFile)
     }
   }
 
-  private async registerJobFromFile(filePath: string): Promise<void> {
+  private async registerDispatchableFromFile(filePath: string): Promise<void> {
     try {
-      const JobClass = await this.importJobClass(filePath)
+      const JobClass = await this.importClass<Dispatchable>(filePath)
       if (!JobClass) return
 
       const jobConfig = this.configExtractor.extractJobConfig(JobClass)
       this.configExtractor.validateJobConfig(jobConfig, filePath)
 
-      await this.jobManager.work(jobConfig.jobName, JobClass, jobConfig.workOptions)
-      if (jobConfig.cron) {
-        await this.jobManager.schedule(
-          jobConfig.jobName,
-          jobConfig.cron,
-          {},
-          jobConfig.scheduleOptions
-        )
-      }
+      await this.jobManager.registerDispatchable(JobClass, jobConfig.workOptions)
     } catch (error) {
-      this.logger.error(`Failed to register job from ${filePath}:`, [error])
+      this.logger.error(`Failed to register dispatchable job from ${filePath}:`, [error])
       throw error
     }
   }
 
-  private async importJobClass(filePath: string): Promise<JobClass | null> {
+  private async registerSchedulableFromFile(filePath: string): Promise<void> {
+    try {
+      const CronClass = await this.importClass<Schedulable>(filePath)
+      if (!CronClass) return
+
+      const jobConfig = this.configExtractor.extractCronConfig(CronClass)
+      this.configExtractor.validateCronConfig(jobConfig, filePath)
+
+      await this.jobManager.registerSchedulable(CronClass, jobConfig.scheduleOptions)
+    } catch (error) {
+      this.logger.error(`Failed to register schedulable cron from ${filePath}:`, [error])
+      throw error
+    }
+  }
+
+  private async importClass<T>(filePath: string): Promise<(new () => T) | null> {
     const jobModule = await import(filePath)
-    const JobClass = jobModule.default as JobClass
+    const JobClass = jobModule.default as new () => T
 
     if (!JobClass || typeof JobClass !== 'function') {
       return null

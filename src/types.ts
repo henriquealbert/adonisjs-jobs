@@ -1,6 +1,5 @@
 import type PgBoss from 'pg-boss'
-import { Job } from './job.js'
-import type { JobQueues, DefaultJobQueues } from './jobs_types.js'
+import type { Dispatchable } from './dispatchable.js'
 
 export type {
   ConstructorOptions,
@@ -36,10 +35,10 @@ export interface ScheduleOptions extends PgBoss.ScheduleOptions {
 }
 
 /**
- * Job class constructor type
+ * Dispatchable job class constructor type
  */
 export interface JobClass {
-  new (...args: unknown[]): Job
+  new (...args: unknown[]): Dispatchable
 }
 
 export interface PgBossConfig extends PgBoss.ConstructorOptions {
@@ -59,10 +58,16 @@ export interface PgBossConfig extends PgBoss.ConstructorOptions {
   shutdownTimeoutMs?: number
 
   /**
-   * Path to scan for job classes
+   * Path to scan for dispatchable job classes (*_job.ts)
    * Default: 'app/jobs'
    */
   jobsPath?: string
+
+  /**
+   * Path to scan for schedulable cron classes (*_cron.ts)
+   * Default: 'app/cron'
+   */
+  cronPath?: string
 
   /**
    * Available queue names for type safety
@@ -82,19 +87,6 @@ export interface PgBossConfig extends PgBoss.ConstructorOptions {
  * Re-export JobQueues interface for module augmentation
  */
 export type { JobQueues } from './jobs_types.js'
-
-/**
- * Type-safe Job interface for queue property
- */
-export interface TypeSafeJobStatic {
-  queue?: JobQueues['queues'] extends never ? DefaultJobQueues['queues'] : JobQueues['queues']
-}
-
-/**
- * JobService type alias for better naming
- * This is just a type alias for PgBoss, not a wrapper
- */
-export type JobService = PgBoss
 
 /**
  * Helper type to infer queue names from config

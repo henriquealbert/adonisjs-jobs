@@ -1,10 +1,10 @@
-import type { WorkOptions, ScheduleOptions } from 'pg-boss'
+import type { WorkOptions } from 'pg-boss'
 import type { JobQueues, DefaultJobQueues } from './jobs_types.js'
 
-export abstract class Job {
+export abstract class Dispatchable {
   /**
    * Optional: Override the auto-generated job name
-   * Default: kebab-case conversion of class name (SendEmailJob → 'send-email')
+   * Default: kebab-case conversion of class name (CreateDatabaseJob → 'create-database')
    */
   static jobName?: string
 
@@ -13,27 +13,13 @@ export abstract class Job {
    * Default: 'default'
    * Must match one of the queues defined in config/jobs.ts
    */
-  static queue?: JobQueues['queues'] extends never
-    ? DefaultJobQueues['queues']
-    : JobQueues['queues']
-
-  /**
-   * Optional: Schedule this job to run on a cron schedule
-   * Uses standard cron syntax: '0 2 * * *' = daily at 2 AM
-   */
-  static cron?: string
+  static queue?: JobQueues['queues'] extends any ? JobQueues['queues'] : DefaultJobQueues['queues']
 
   /**
    * Optional: All pg-boss work options
    * See: https://github.com/timgit/pg-boss/blob/master/docs/readme.md#work
    */
   static workOptions?: WorkOptions
-
-  /**
-   * Optional: All pg-boss schedule options
-   * See: https://github.com/timgit/pg-boss/blob/master/docs/readme.md#schedule
-   */
-  static scheduleOptions?: ScheduleOptions
 
   /**
    * Handle the job payload

@@ -3,6 +3,18 @@ import { join } from 'node:path'
 
 export class JobFileScanner {
   async scanJobFiles(dir: string, files: string[] = []): Promise<string[]> {
+    return this.scanFiles(dir, this.isJobFile.bind(this), files)
+  }
+
+  async scanCronFiles(dir: string, files: string[] = []): Promise<string[]> {
+    return this.scanFiles(dir, this.isCronFile.bind(this), files)
+  }
+
+  private async scanFiles(
+    dir: string,
+    fileFilter: (name: string) => boolean,
+    files: string[] = []
+  ): Promise<string[]> {
     try {
       const entries = await readdir(dir, { withFileTypes: true })
 
@@ -10,11 +22,11 @@ export class JobFileScanner {
         const fullPath = join(dir, entry.name)
 
         if (entry.isDirectory()) {
-          await this.scanJobFiles(fullPath, files)
+          await this.scanFiles(fullPath, fileFilter, files)
           continue
         }
 
-        if (this.isJobFile(entry.name)) {
+        if (fileFilter(entry.name)) {
           files.push(fullPath)
         }
       }
@@ -55,5 +67,9 @@ export class JobFileScanner {
 
   private isJobFile(filename: string): boolean {
     return filename.endsWith('_job.ts') || filename.endsWith('_job.js')
+  }
+
+  private isCronFile(filename: string): boolean {
+    return filename.endsWith('_cron.ts') || filename.endsWith('_cron.js')
   }
 }
