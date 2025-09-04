@@ -1,47 +1,48 @@
-import { flags } from '@adonisjs/core/ace'
-import { BaseWorkerCommand } from './base_worker_command.js'
+/**
+ * @hschmaiske/jobs
+ *
+ * @license MIT
+ */
 
-export default class JobListen extends BaseWorkerCommand {
+import { BaseCommand, flags } from '@adonisjs/core/ace'
+import type { CommandOptions } from '@adonisjs/core/types/ace'
+import type { PgBossConfig } from '../src/types.js'
+
+export default class JobListen extends BaseCommand {
   static commandName = 'job:listen'
-  static description = 'Process all registered jobs from all queues'
+  static description = 'Listen to one or multiple queues'
 
-  @flags.boolean({ description: 'Enable verbose logging', default: false })
-  declare verbose: boolean
+  @flags.array({ alias: 'q', description: 'The queue(s) to listen on' })
+  declare queue: string[]
 
-  private monitorInterval?: NodeJS.Timeout
-
-  protected logWorkerStart(): void {
-    this.logger.info('🚀 Starting worker to process ALL jobs')
-    this.logger.info(`Concurrency: ${this.concurrency}`)
+  static options: CommandOptions = {
+    startApp: true,
+    staysAlive: true,
   }
 
-  protected async configureWorker(): Promise<void> {
-    await this.pgBoss.start()
+  async run() {
+    const config = this.app.config.get<PgBossConfig>('jobs')
+    const jobs = await this.app.container.make('hschmaiske/jobs' as any)
+    const router = await this.app.container.make('router')
+    router.commit()
 
-    if (this.verbose) {
-      this.setupMonitoring()
+    let shouldListenOn = this.parsed.flags.queue as string[]
+
+    if (!shouldListenOn) {
+      // Listen to all configured queues or default
+      shouldListenOn = config.queues ? [...config.queues] : ['default']
     }
 
-    this.logger.info('🔄 Worker is processing all registered jobs...')
-    this.logger.info('💡 Tip: Use job:queue <name> to process specific queues only')
-  }
+    this.logger.info(`🚀 Starting job processing for queues: ${shouldListenOn.join(', ')}`)
 
-  private setupMonitoring(): void {
-    this.monitorInterval = setInterval(async () => {
-      try {
-        const queueSize = await this.pgBoss.getQueueSize('__default__')
-        this.logger.debug(`Queue activity: ${queueSize} jobs`)
-      } catch (error) {
-        this.logger.debug('No queue activity detected')
-      }
-    }, 30000)
+    await Promise.all(
+      shouldListenOn.map((queueName) =>
+        jobs.process({
+          queueName,
+        })
+      )
+    )
 
-    const cleanup = () => {
-      if (this.monitorInterval) {
-        clearInterval(this.monitorInterval)
-      }
-    }
-    process.on('SIGINT', cleanup)
-    process.on('SIGTERM', cleanup)
+    this.logger.info('✅ Job processing started. Press Ctrl+C to stop.')
   }
 }
