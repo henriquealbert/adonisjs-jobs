@@ -1,3 +1,9 @@
+/**
+ * @hschmaiske/jobs
+ *
+ * @license MIT
+ */
+
 import app from '@adonisjs/core/services/app'
 import { JobManager } from '../src/job_manager.js'
 
