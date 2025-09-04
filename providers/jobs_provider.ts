@@ -17,7 +17,7 @@ export default class JobsProvider {
     this.app.container.singleton('hschmaiske/jobs' as any, async () => {
       const { JobManager } = await import('../src/job_manager.js')
 
-      const config = this.app.config.get<PgBossConfig>('jobs', {})
+      const config = this.app.config.get<PgBossConfig>('jobs')
       const logger = await this.app.container.make('logger')
 
       this.#jobManager = new JobManager(config, logger, this.app)

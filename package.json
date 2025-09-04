@@ -5,24 +5,26 @@
   "engines": {
     "node": ">=20.6.0"
   },
+  "main": "./build/index.js",
   "type": "module",
   "files": [
-    "build/src",
+    "src",
+    "build/commands",
     "build/providers",
     "build/services",
-    "build/commands",
+    "build/src",
     "build/stubs",
-    "build/index.d.ts",
     "build/index.js",
-    "build/configure.d.ts",
-    "build/configure.js"
+    "build/index.d.ts",
+    "build/configure.js",
+    "build/configure.d.ts"
   ],
-  "exports": {
+ "exports": {
     ".": "./build/index.js",
-    "./types": "./build/src/jobs_types.js",
-    "./services/main": "./build/services/main.js",
-    "./providers/jobs_provider": "./build/providers/jobs_provider.js",
-    "./commands": "./build/commands/index.js"
+    "./commands": "./build/commands/main.js",
+    "./commands/*": "./build/commands/*.js",
+    "./services/*": "./build/services/*.js",
+    "./queue_provider": "./build/providers/queue_provider.js"
   },
   "scripts": {
     "clean": "del-cli build",
