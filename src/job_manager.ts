@@ -1,33 +1,20 @@
-import type { ApplicationService } from '@adonisjs/core/types'
-import type { LoggerService } from '@adonisjs/core/types'
-import type PgBoss from 'pg-boss'
-import type { PgBossConfig, WorkOptions, ScheduleOptions } from './types.js'
+/**
+ * @hschmaiske/jobs
+ *
+ * @license MIT
+ */
+
+import PgBoss from 'pg-boss'
+import type { ApplicationService, LoggerService } from '@adonisjs/core/types'
+import type { PgBossConfig } from './types.js'
 import type { Dispatchable } from './dispatchable.js'
 import type { Schedulable } from './schedulable.js'
 
-/**
- * JobManager provides a minimal wrapper around PgBoss for AdonisJS.
- *
- * Since Dispatchable and Schedulable classes auto-register (via static properties), users only need:
- * - dispatch() method for type-safe job dispatch
- * - raw property for direct PgBoss access
- *
- * Example:
- *   // Dispatchable classes auto-register workers
- *   export default class CreateDatabase extends Dispatchable {
- *     static queue = 'databases'
- *     async handle(payload) { ... }
- *   }
- *
- *   // Users dispatch jobs with type safety
- *   await jobs.dispatch(CreateDatabase, { name: 'mydb' })
- *   await jobs.raw.clearStorage() // Direct PgBoss for anything else
- */
 export class JobManager {
-  #pgBoss: PgBoss | null = null
   #app: ApplicationService
   #logger: LoggerService
   #config: PgBossConfig
+  #pgBoss: PgBoss | null = null
 
   constructor(config: PgBossConfig, logger: LoggerService, app: ApplicationService) {
     this.#config = config
@@ -35,72 +22,30 @@ export class JobManager {
     this.#app = app
   }
 
-  async initialize(): Promise<void> {
-    const environment = this.#app.getEnvironment()
-    const nodeEnv = process.env.NODE_ENV
-    const isTestEnvironment = environment === 'test' || nodeEnv === 'test'
-
-    if (isTestEnvironment) {
-      const { PgBossMock } = await import('./mocks/pg_boss_mock.js')
-      this.#pgBoss = new PgBossMock() as unknown as PgBoss
-    } else {
-      const PgBossClass = await import('pg-boss')
-      this.#pgBoss = new PgBossClass.default(this.#config)
-    }
-  }
-
-  get instance(): PgBoss {
+  /**
+   * Ensure PgBoss is started
+   */
+  async #ensureStarted(): Promise<PgBoss> {
     if (!this.#pgBoss) {
-      throw new Error('JobManager not initialized. Call initialize() first.')
+      const environment = this.#app.getEnvironment()
+      const isTestEnvironment = environment === 'test' || process.env.NODE_ENV === 'test'
+
+      if (isTestEnvironment) {
+        const { PgBossMock } = await import('./mocks/pg_boss_mock.js')
+        this.#pgBoss = new PgBossMock() as unknown as PgBoss
+      } else {
+        this.#pgBoss = new PgBoss(this.#config)
+      }
+
+      await this.#pgBoss.start()
+      this.#logger.info('PgBoss started')
     }
     return this.#pgBoss
   }
 
   /**
-   * Get the raw PgBoss instance for advanced usage.
-   * This allows users to access any PgBoss API that may not be wrapped.
-   */
-  get raw(): PgBoss {
-    return this.instance
-  }
-
-  async start(): Promise<void> {
-    if (!this.#pgBoss) {
-      throw new Error('JobManager not initialized. Call initialize() first.')
-    }
-    await this.#pgBoss.start()
-    this.#logger.info('Job service started')
-  }
-
-  async stop(): Promise<void> {
-    if (this.#pgBoss) {
-      await this.#pgBoss.stop()
-      this.#logger.info('Job service stopped')
-    }
-  }
-
-  /**
-   * Dispatch a job for immediate processing (type-safe)
-   * @param JobClass Dispatchable job class
-   * @param payload Job payload (type-safe based on handle method)
-   * @param options PgBoss send options
-   */
-  async dispatch<T extends Dispatchable>(
-    JobClass: new (...args: any[]) => T,
-    payload: Parameters<T['handle']>[0],
-    options?: PgBoss.SendOptions
-  ): Promise<string | null> {
-    if (!this.#pgBoss) {
-      throw new Error('JobManager not initialized')
-    }
-    const jobName = this.getJobName(JobClass)
-    return this.#pgBoss.send(jobName, payload as object, options || {})
-  }
-
-  /**
    * Extract job name from class name
    * CreateDatabaseJob -> 'create-database'
-   * @internal
    */
   private getJobName<T extends Dispatchable | Schedulable>(
     JobClass: new (...args: any[]) => T
@@ -124,32 +69,65 @@ export class JobManager {
       .replace(/^-/, '')
   }
 
-  // === INTERNAL METHODS (used by framework, not end users) ===
+  /**
+   * Dispatch a job with type-safe payload
+   * Jobs are already registered via auto-discovery
+   */
+  async dispatch<T extends Dispatchable>(
+    JobClass: new (...args: any[]) => T,
+    payload: Parameters<T['handle']>[0],
+    options?: PgBoss.SendOptions
+  ): Promise<string | null> {
+    const pgBoss = await this.#ensureStarted()
+    const jobName = this.getJobName(JobClass)
+    return pgBoss.send(jobName, payload as object, options || {})
+  }
 
-  /** @internal Used by auto-discovery to register Dispatchable classes */
+  /**
+   * Register a Dispatchable job (called by auto-discovery)
+   * This registers the worker that will process jobs
+   */
   async registerDispatchable<T extends Dispatchable>(
     JobClass: new () => T,
-    options?: WorkOptions
+    options?: PgBoss.WorkOptions
   ): Promise<void> {
+    const pgBoss = await this.#ensureStarted()
     const jobName = this.getJobName(JobClass)
+    const staticOptions = (JobClass as any).workOptions || {}
+    const queue = (JobClass as any).queue || 'default'
+
+    // Merge static options with provided options
+    const workOptions = { ...staticOptions, ...options, queue }
+
     const handler = async (jobs: PgBoss.Job<object>[]) => {
       for (const job of jobs) {
-        const instance = new JobClass()
-        await instance.handle(job.data)
+        try {
+          const instance = await this.#app.container.make(JobClass)
+          await instance.handle(job.data)
+        } catch (error) {
+          this.#logger.error(`Job ${jobName} failed:`, error)
+          throw error // Let pg-boss handle retry
+        }
       }
     }
 
-    await this.raw.work(jobName, options || {}, handler)
-    this.#logger.info(`Worker registered for dispatchable job: ${jobName}`)
+    await pgBoss.work(jobName, workOptions, handler)
+    this.#logger.info(`Worker registered for job: ${jobName} on queue: ${queue}`)
   }
 
-  /** @internal Used by auto-discovery to register Schedulable classes */
+  /**
+   * Register a Schedulable cron job (called by auto-discovery)
+   * This sets up both the worker and the schedule
+   */
   async registerSchedulable<T extends Schedulable>(
     CronClass: new () => T,
-    options?: ScheduleOptions
+    options?: PgBoss.ScheduleOptions
   ): Promise<void> {
+    const pgBoss = await this.#ensureStarted()
     const jobName = this.getJobName(CronClass)
     const schedule = (CronClass as unknown as { schedule?: string }).schedule
+    const queue = (CronClass as any).queue || 'default'
+    const scheduleOptions = (CronClass as any).scheduleOptions || {}
 
     if (!schedule) {
       throw new Error(`Schedulable class ${CronClass.name} must have static schedule property`)
@@ -157,19 +135,77 @@ export class JobManager {
 
     // Register worker for cron execution
     const handler = async () => {
-      const instance = new CronClass()
-      await instance.handle()
+      try {
+        const instance = await this.#app.container.make(CronClass)
+        await instance.handle()
+      } catch (error) {
+        this.#logger.error(`Cron job ${jobName} failed:`, error)
+        throw error
+      }
     }
 
-    await this.raw.work(jobName, {}, async () => {
+    await pgBoss.work(jobName, {}, async () => {
       await handler()
     })
 
     // Schedule the cron job
-    await this.raw.schedule(jobName, schedule, {}, options || {})
-    this.#logger.info(`Scheduled cron job: ${jobName} with schedule: ${schedule}`)
+    const finalOptions = { ...scheduleOptions, ...options, queue }
+    await pgBoss.schedule(jobName, schedule, {}, finalOptions)
+    this.#logger.info(
+      `Scheduled cron job: ${jobName} with schedule: ${schedule} on queue: ${queue}`
+    )
   }
 
+  /**
+   * Start processing jobs from a specific queue
+   * This is used by the job:listen command
+   */
+  async process({ queueName = 'default' }: { queueName?: string } = {}) {
+    await this.#ensureStarted()
+    this.#logger.info(`Processing queue [${queueName}]...`)
+    // The actual processing is handled by registered workers
+    // This method just ensures PgBoss is started
+    return this
+  }
+
+  /**
+   * Get the raw PgBoss instance for advanced usage
+   */
+  get raw(): PgBoss {
+    if (!this.#pgBoss) {
+      throw new Error('JobManager not started. Call dispatch() or an async method first.')
+    }
+    return this.#pgBoss
+  }
+
+  /**
+   * Get the raw PgBoss instance (async version ensures it's started)
+   */
+  async getRaw(): Promise<PgBoss> {
+    return this.#ensureStarted()
+  }
+
+  /**
+   * Start the job manager
+   */
+  async start(): Promise<void> {
+    await this.#ensureStarted()
+  }
+
+  /**
+   * Stop the job manager
+   */
+  async stop(): Promise<void> {
+    if (this.#pgBoss) {
+      await this.#pgBoss.stop()
+      this.#logger.info('PgBoss stopped')
+      this.#pgBoss = null
+    }
+  }
+
+  /**
+   * Close all connections (alias for stop)
+   */
   async closeAll(): Promise<void> {
     await this.stop()
   }
