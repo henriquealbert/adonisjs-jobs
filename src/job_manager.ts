@@ -102,8 +102,14 @@ export class JobManager {
     const handler = async (jobs: PgBoss.Job<object>[]) => {
       for (const job of jobs) {
         try {
+          // Use container.make to get instance with dependency injection
           const instance = await this.#app.container.make(JobClass)
-          await instance.handle(job.data)
+
+          // Inject internal dependencies (logger, etc.)
+          instance.$injectInternal({ logger: this.#logger })
+
+          // Use container.call to ensure proper context
+          await this.#app.container.call(instance, 'handle' as any, [job.data])
         } catch (error) {
           this.#logger.error(`Job ${jobName} failed:`, error)
           throw error // Let pg-boss handle retry
@@ -136,8 +142,14 @@ export class JobManager {
     // Register worker for cron execution
     const handler = async () => {
       try {
+        // Use container.make to get instance with dependency injection
         const instance = await this.#app.container.make(CronClass)
-        await instance.handle()
+
+        // Inject internal dependencies (logger, etc.)
+        instance.$injectInternal({ logger: this.#logger })
+
+        // Use container.call to ensure proper context
+        await this.#app.container.call(instance, 'handle' as any, [])
       } catch (error) {
         this.#logger.error(`Cron job ${jobName} failed:`, error)
         throw error

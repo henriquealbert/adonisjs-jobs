@@ -455,7 +455,7 @@ const jobsConfig = defineConfig({
   retryLimit: 3,
   retryDelay: 30,
   retryBackoff: true,
-  expireInHours: 24,
+  expireInHours: 23,
 })
 ```
 

@@ -1,7 +1,28 @@
 import type { ScheduleOptions } from 'pg-boss'
 import type { JobQueues, DefaultJobQueues } from './jobs_types.js'
+import type { LoggerService } from '@adonisjs/core/types'
 
 export abstract class Schedulable {
+  #logger?: LoggerService
+
+  /**
+   * Inject internal dependencies (called by the job manager)
+   */
+  $injectInternal(internals: { logger: LoggerService }) {
+    this.#logger = internals.logger
+  }
+
+  /**
+   * Access to logger instance
+   */
+  get logger() {
+    if (!this.#logger) {
+      throw new Error(
+        'Logger not available. Make sure the cron job is properly initialized by the job manager.'
+      )
+    }
+    return this.#logger
+  }
   /**
    * Required: Cron schedule expression
    * Uses standard cron syntax: '0 2 * * *' = daily at 2 AM

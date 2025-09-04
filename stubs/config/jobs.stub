@@ -36,7 +36,7 @@ const jobsConfig = defineConfig({
   retryLimit: 3,                              // Default retry attempts
   retryDelay: 30,                             // Default retry delay (seconds)
   retryBackoff: true,                         // Enable exponential backoff
-  expireInHours: 24,                          // Default job expiration
+  expireInHours: 23,                          // Default job expiration
 
   // Graceful shutdown timeout
   shutdownTimeoutMs: 10000,                  // 10 seconds timeout for graceful shutdown
