@@ -179,6 +179,13 @@ export class JobManager {
   }
 
   /**
+   * Get the raw PgBoss instance (alias for raw getter)
+   */
+  get instance(): PgBoss {
+    return this.raw
+  }
+
+  /**
    * Get the raw PgBoss instance (async version ensures it's started)
    */
   async getRaw(): Promise<PgBoss> {

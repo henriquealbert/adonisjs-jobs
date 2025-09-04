@@ -182,8 +182,8 @@ test.group('JobsProvider', () => {
 
     const jobs = await app.container.make('hschmaiske/jobs')
 
-    // Should provide access to raw PgBoss instance
-    const rawPgBoss = (jobs as JobManager).raw
+    // Should provide access to raw PgBoss instance (async version)
+    const rawPgBoss = await (jobs as JobManager).getRaw()
     assert.isObject(rawPgBoss)
 
     // Should have PgBoss methods

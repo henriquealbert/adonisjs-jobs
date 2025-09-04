@@ -49,7 +49,7 @@ test.group('JobAutoDiscovery', () => {
     const logger = createMockLogger()
 
     const jobManager = new JobManager(config, logger, app)
-    await jobManager.initialize()
+    // JobManager no longer needs explicit initialization
 
     const fileScanner = new JobFileScanner()
     const configExtractor = new JobConfigExtractor(config)
@@ -77,7 +77,7 @@ test.group('JobAutoDiscovery', () => {
     const logger = createMockLogger()
 
     const jobManager = new JobManager(config, logger, app)
-    await jobManager.initialize()
+    // JobManager no longer needs explicit initialization
 
     const fileScanner = new JobFileScanner()
     const configExtractor = new JobConfigExtractor(config)
@@ -123,7 +123,7 @@ test.group('JobAutoDiscovery', () => {
     const fileScanner = new JobFileScanner()
     const configExtractor = new JobConfigExtractor({})
     const jobManager = new JobManager({}, logger, app)
-    await jobManager.initialize()
+    // JobManager no longer needs explicit initialization
 
     // Test with invalid defaultQueue - should throw error (lines 60-65)
     const invalidConfig: PgBossConfig = {
@@ -157,7 +157,7 @@ test.group('JobAutoDiscovery', () => {
     const fileScanner = new JobFileScanner()
     const configExtractor = new JobConfigExtractor({})
     const jobManager = new JobManager({}, logger, app)
-    await jobManager.initialize()
+    // JobManager no longer needs explicit initialization
 
     // Test with valid defaultQueue - should not throw
     const validConfig: PgBossConfig = {
@@ -188,7 +188,7 @@ test.group('JobAutoDiscovery', () => {
     const fileScanner = new JobFileScanner()
     const configExtractor = new JobConfigExtractor({})
     const jobManager = new JobManager({}, logger, app)
-    await jobManager.initialize()
+    // JobManager no longer needs explicit initialization
 
     // Test with defaultQueue but no queues array - should not throw (line 59 condition)
     const configNoQueues: PgBossConfig = {
@@ -219,7 +219,7 @@ test.group('JobAutoDiscovery', () => {
     const fileScanner = new JobFileScanner()
     const configExtractor = new JobConfigExtractor({})
     const jobManager = new JobManager({}, logger, app)
-    await jobManager.initialize()
+    // JobManager no longer needs explicit initialization
 
     // Test with no defaultQueue - should not throw (line 59 condition)
     const configNoDefault: PgBossConfig = {
