@@ -41,7 +41,7 @@
     "postbuild": "npm run copy:templates",
     "release": "np",
     "version": "npm run build && npm run index:commands",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build && npm run index:commands"
   },
   "keywords": [
     "adonisjs",
