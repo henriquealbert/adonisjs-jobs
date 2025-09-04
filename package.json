@@ -24,7 +24,7 @@
     "./commands": "./build/commands/main.js",
     "./commands/*": "./build/commands/*.js",
     "./services/*": "./build/services/*.js",
-    "./queue_provider": "./build/providers/queue_provider.js"
+    "./jobs_provider": "./build/providers/jobs_provider.js"
   },
   "scripts": {
     "clean": "del-cli build",
