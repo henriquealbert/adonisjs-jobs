@@ -64,7 +64,9 @@ export class JobAutoDiscovery {
   }
 
   private async importClass<T>(filePath: string): Promise<(new () => T) | null> {
-    const jobModule = await import(filePath)
+    // Convert absolute path to file:// URL for proper ESM import
+    const fileUrl = filePath.startsWith('/') ? `file://${filePath}` : filePath
+    const jobModule = await import(fileUrl)
     const JobClass = jobModule.default as new () => T
 
     if (!JobClass || typeof JobClass !== 'function') {
