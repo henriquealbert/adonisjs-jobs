@@ -27,6 +27,7 @@
   "scripts": {
     "clean": "del-cli build",
     "copy:templates": "copyfiles \"stubs/**/*.stub\" build",
+    "index:commands": "adonis-kit index build/commands",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -52,6 +53,8 @@
   "author": "hschmaiske",
   "license": "MIT",
   "dependencies": {
+    "@poppinss/utils": "^6.10.1",
+    "@sindresorhus/is": "^6.3.1",
     "pg-boss": "^10.1.5"
   },
   "devDependencies": {

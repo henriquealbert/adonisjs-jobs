@@ -179,12 +179,11 @@ export default class UsersController {
 Start job workers to process queues:
 
 ```bash
-# Development - process all jobs
+# Process all configured queues
 node ace job:listen
 
-# Production - process specific queues
-node ace job:queue emails --concurrency 10
-node ace job:queue maintenance --concurrency 2
+# Process specific queues only
+node ace job:listen -q emails -q reports
 ```
 
 ## Core Concepts
@@ -221,12 +220,12 @@ For example:
 
 ## CLI Commands
 
-| Command                     | Description                        |
-| --------------------------- | ---------------------------------- |
-| `node ace make:job <name>`  | Create a new queue job class       |
-| `node ace make:cron <name>` | Create a new cron job class        |
-| `node ace job:listen`       | Process all registered jobs        |
-| `node ace job:queue <name>` | Process jobs from a specific queue |
+| Command                         | Description                       |
+| ------------------------------- | --------------------------------- |
+| `node ace make:job <name>`      | Create a new queue job class      |
+| `node ace make:cron <name>`     | Create a new cron job class       |
+| `node ace job:listen`           | Process all registered jobs       |
+| `node ace job:listen -q <name>` | Process jobs from specific queues |
 
 ## Advanced Features
 
@@ -403,13 +402,9 @@ Separate workers by queue for optimal resource allocation:
 #!/bin/bash
 # production-workers.sh
 
-# High-priority queues
-node ace job:queue emails --concurrency 20 &
-node ace job:queue payments --concurrency 5 &
-
-# Background queues
-node ace job:queue reports --concurrency 3 &
-node ace job:queue maintenance --concurrency 1 &
+# Start separate processes for different queue groups
+node ace job:listen -q emails -q payments &  # High-priority queues
+node ace job:listen -q reports -q maintenance &  # Background queues
 
 wait
 ```
