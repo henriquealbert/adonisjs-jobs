@@ -1,7 +1,7 @@
 {
   "name": "@hschmaiske/jobs",
   "description": "Job queue and scheduler integration for AdonisJS applications",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "engines": {
     "node": ">=20.6.0"
   },
@@ -19,7 +19,7 @@
     "build/configure.js",
     "build/configure.d.ts"
   ],
- "exports": {
+  "exports": {
     ".": "./build/index.js",
     "./commands": "./build/commands/main.js",
     "./commands/*": "./build/commands/*.js",
