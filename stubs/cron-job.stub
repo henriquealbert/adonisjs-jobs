@@ -23,7 +23,7 @@ export default class {{ entity.name }}Cron extends Schedulable {
   
   // Optional: All pg-boss schedule options in one object
   // static scheduleOptions = {
-  //   singletonKey: '{{ entity.name | camelcase }}-daily',
+  //   singletonKey: '{{ entity.name | camelCase }}-daily',
   //   singletonSeconds: 3600,  // Lock for 1 hour
   //   priority: 5,             // Lower priority than user actions
   //   retryLimit: 2,           // Fewer retries for cron jobs
@@ -35,14 +35,14 @@ export default class {{ entity.name }}Cron extends Schedulable {
   
   async handle() {
     // Implement your cron job logic here (no payload for scheduled jobs)
-    this.logger.info('Running {{ entity.name | camelcase }} cron job')
+    this.logger.info('Running {{ entity.name | camelCase }} cron job')
     
     // Example: Perform scheduled maintenance
     // await performDailyCleanup()
     // await generateReports()
     // await syncData()
 
-    this.logger.info('{{ entity.name | camelcase }} cron job completed')
+    this.logger.info('{{ entity.name | camelCase }} cron job completed')
     
     // Return success (job will be marked as completed)
     // Throw an error to mark job as failed and trigger retry

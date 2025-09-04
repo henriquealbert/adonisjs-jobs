@@ -41,7 +41,7 @@ export default class {{ entity.name }}Job extends Dispatchable {
   
   async handle(payload: {{ entity.name }}Payload) {
     // Implement your queue job logic here
-    this.logger.info('Processing {{ entity.name | camelcase }} job', payload)
+    this.logger.info('Processing {{ entity.name | camelCase }} job', payload)
     
     // Example: Process the job
     // await someService.processData(payload)
