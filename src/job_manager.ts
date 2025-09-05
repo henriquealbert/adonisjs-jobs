@@ -182,28 +182,23 @@ export class JobManager {
       throw error
     }
 
-    // PgBoss schedule params: (jobName, schedule, data, options)
-    // Job name should be the file path (like @rlanz/bull-queue pattern)
+    // PgBoss schedule params: (queueName, schedule, data, options)
+    // Following official PgBoss examples - schedule TO the queue
     const jobData = {
       ...payload,
-    }
-
-    // If queue is specified, pass it in options
-    const scheduleOptions = {
-      ...options,
-      ...(queueName !== 'default' && { queue: queueName }), // Only add queue if not default
+      __jobPath: jobPath, // Include job path so we know which class to execute
     }
 
     this.#logger.info(`Attempting to schedule: ${jobPath}`)
     this.#logger.info(`  Queue: ${queueName}`)
     this.#logger.info(`  Schedule: ${schedule}`)
     this.#logger.info(`  Data:`, jobData)
-    this.#logger.info(`  Options:`, scheduleOptions)
+    this.#logger.info(`  Options:`, options)
 
     try {
-      // Schedule with job name = file path (following @rlanz pattern)
-      await pgBoss.schedule(jobPath, schedule, jobData, scheduleOptions)
-      this.#logger.info(`✅ Successfully scheduled cron job: ${jobPath}`)
+      // Schedule TO the queue (following official PgBoss examples)
+      await pgBoss.schedule(queueName, schedule, jobData, options)
+      this.#logger.info(`✅ Successfully scheduled cron job: ${jobPath} to queue: ${queueName}`)
     } catch (error) {
       this.#logger.error(`❌ Failed to schedule cron job: ${jobPath}`)
       this.#logger.error(`  Error: ${error.message}`)
@@ -218,26 +213,27 @@ export class JobManager {
   process({ queueName }: { queueName?: string }) {
     this.#logger.info(`Queue [${queueName || 'default'}] processing started...`)
 
-    // Create a worker for the specific queue
     this.#ensureStarted().then(async (pgBoss) => {
       const actualQueueName = queueName || 'default'
 
       await pgBoss.work(actualQueueName, async (jobs: PgBoss.Job<any>[]) => {
         for (const job of jobs) {
           try {
-            // For scheduled jobs, the job name contains the file path
-            this.#logger.info(`Processing job: ${job.name}`)
+            // For scheduled jobs, job path is in the data
+            const jobPath = job.data.__jobPath || job.name
+
+            this.#logger.info(`Processing job from queue [${actualQueueName}]: ${jobPath}`)
 
             const jobInstance = await this.#instantiateJob({
-              name: job.name,
+              name: jobPath,
               data: job.data,
             })
 
-            this.#logger.info(`Job ${job.name} started`)
+            this.#logger.info(`Job ${jobPath} started`)
             await this.#app.container.call(jobInstance, 'handle', [job.data])
-            this.#logger.info(`Job ${job.name} finished`)
+            this.#logger.info(`Job ${jobPath} finished`)
           } catch (error) {
-            this.#logger.error(`Job ${job.name} failed:`, error)
+            this.#logger.error(`Job ${job.data.__jobPath || job.name} failed:`, error)
             throw error
           }
         }
