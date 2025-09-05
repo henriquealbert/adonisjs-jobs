@@ -45,7 +45,6 @@ export class JobManager {
       }
 
       await this.#pgBoss.start()
-      this.#logger.info('PgBoss started')
     }
     return this.#pgBoss
   }
