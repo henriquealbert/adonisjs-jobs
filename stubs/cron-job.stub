@@ -11,6 +11,14 @@ import Logger from '@adonisjs/core/services/logger'
 
 @inject()
 export default class {{ entity.name }}Cron extends Schedulable {
+  /**
+   * Required: Path for dynamic imports
+   * This allows the job system to properly load your cron job
+   */
+  static get $$filepath() {
+    return import.meta.url
+  }
+
   // Required: Cron schedule (this job will auto-schedule on startup)
   static readonly schedule = '0 2 * * *'  // Daily at 2 AM - customize as needed
   

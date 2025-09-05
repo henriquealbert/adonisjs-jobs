@@ -23,6 +23,15 @@ export abstract class Schedulable {
     }
     return this.#logger
   }
+
+  /**
+   * The file path of the cron class - used for dynamic imports
+   * This should be set to import.meta.url in the cron class
+   */
+  static get $$filepath(): string {
+    throw new Error('$$filepath must be implemented in the cron class. Set it to: import.meta.url')
+  }
+
   /**
    * Required: Cron schedule expression
    * Uses standard cron syntax: '0 2 * * *' = daily at 2 AM

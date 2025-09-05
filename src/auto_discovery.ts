@@ -35,8 +35,17 @@ export class JobAutoDiscovery {
 
   private async registerDispatchableFromFile(filePath: string): Promise<void> {
     try {
-      const JobClass = await this.importClass<Dispatchable>(filePath)
+      // First import to get the class and its $$filepath
+      const JobClass = await this.importClassInitial<Dispatchable>(filePath)
       if (!JobClass) return
+
+      // Check if the class has $$filepath property - this is required
+      const hasFilepath = this.hasFilepathProperty(JobClass)
+      if (!hasFilepath) {
+        throw new Error(
+          `Job class from ${filePath} is missing required static $$filepath property. Add: static get $$filepath() { return import.meta.url }`
+        )
+      }
 
       const jobConfig = this.configExtractor.extractJobConfig(JobClass)
       this.configExtractor.validateJobConfig(jobConfig, filePath)
@@ -50,8 +59,17 @@ export class JobAutoDiscovery {
 
   private async registerSchedulableFromFile(filePath: string): Promise<void> {
     try {
-      const CronClass = await this.importClass<Schedulable>(filePath)
+      // First import to get the class and its $$filepath
+      const CronClass = await this.importClassInitial<Schedulable>(filePath)
       if (!CronClass) return
+
+      // Check if the class has $$filepath property - this is required
+      const hasFilepath = this.hasFilepathProperty(CronClass)
+      if (!hasFilepath) {
+        throw new Error(
+          `Cron class from ${filePath} is missing required static $$filepath property. Add: static get $$filepath() { return import.meta.url }`
+        )
+      }
 
       const jobConfig = this.configExtractor.extractCronConfig(CronClass)
       this.configExtractor.validateCronConfig(jobConfig, filePath)
@@ -63,17 +81,31 @@ export class JobAutoDiscovery {
     }
   }
 
-  private async importClass<T>(filePath: string): Promise<(new () => T) | null> {
-    // Convert absolute path to file:// URL for proper ESM import
-    const fileUrl = filePath.startsWith('/') ? `file://${filePath}` : filePath
-    const jobModule = await import(fileUrl)
-    const JobClass = jobModule.default as new () => T
+  private async importClassInitial<T>(filePath: string): Promise<(new () => T) | null> {
+    try {
+      // Convert absolute path to file:// URL for proper ESM import
+      const fileUrl = filePath.startsWith('/') ? `file://${filePath}` : filePath
+      const jobModule = await import(fileUrl)
+      const JobClass = jobModule.default as new () => T
 
-    if (!JobClass || typeof JobClass !== 'function') {
-      return null
+      if (!JobClass || typeof JobClass !== 'function') {
+        return null
+      }
+
+      return JobClass
+    } catch (error) {
+      this.logger.error(`Failed to import ${filePath}: ${error.message}`)
+      throw error
     }
+  }
 
-    return JobClass
+  private hasFilepathProperty(JobClass: any): boolean {
+    try {
+      // Check if the class has the $$filepath getter
+      return typeof JobClass.$$filepath === 'string'
+    } catch {
+      return false
+    }
   }
 
   private validateDefaultQueue(): void {

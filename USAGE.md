@@ -7,6 +7,11 @@ Since Job and Cron classes auto-register workers and schedules, you only need to
 ```typescript
 // 1. Define dispatchable jobs (auto-register)
 export default class CreateDatabase extends Dispatchable {
+  // REQUIRED: Enables dynamic imports with AdonisJS path aliases
+  static get $$filepath() {
+    return import.meta.url
+  }
+
   static queue = 'databases'
 
   async handle({ name }: { name: string }) {
@@ -16,6 +21,11 @@ export default class CreateDatabase extends Dispatchable {
 
 // 2. Define schedulable cron tasks (auto-scheduled)
 export default class OAuthTokensCleanup extends Schedulable {
+  // REQUIRED: Enables dynamic imports with AdonisJS path aliases
+  static get $$filepath() {
+    return import.meta.url
+  }
+
   static readonly schedule = '0 * * * *' // Auto-scheduled hourly
   static queue = 'cron'
 

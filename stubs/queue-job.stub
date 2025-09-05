@@ -18,6 +18,14 @@ export interface {{ entity.name }}Payload {
 
 @inject()
 export default class {{ entity.name }}Job extends Dispatchable {
+  /**
+   * Required: Path for dynamic imports
+   * This allows the job system to properly load your job
+   */
+  static get $$filepath() {
+    return import.meta.url
+  }
+
   // Optional: Specify custom queue (autocomplete enabled if declared in config)
   // If not specified, uses defaultQueue from config (default: 'default')
   // static queue = 'emails'

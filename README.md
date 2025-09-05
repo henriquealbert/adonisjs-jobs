@@ -93,6 +93,14 @@ export interface SendEmailPayload {
 
 @inject()
 export default class SendEmailJob extends Dispatchable {
+  /**
+   * Required: Path for dynamic imports
+   * This allows the job system to properly load your job
+   */
+  static get $$filepath() {
+    return import.meta.url
+  }
+
   static queue: QueueNames = 'emails' // ← Type-safe queue assignment
 
   constructor(
@@ -122,6 +130,14 @@ import Logger from '@adonisjs/core/services/logger'
 
 @inject()
 export default class DailyCleanupCron extends Schedulable {
+  /**
+   * Required: Path for dynamic imports
+   * This allows the job system to properly load your cron job
+   */
+  static get $$filepath() {
+    return import.meta.url
+  }
+
   static readonly schedule = '0 2 * * *' // Daily at 2 AM
 
   constructor(
@@ -188,6 +204,22 @@ node ace job:listen -q emails -q reports
 
 ## Core Concepts
 
+### Required $$filepath Property
+
+All job and cron classes **MUST** include a `$$filepath` property that returns `import.meta.url`. This is required for the auto-discovery system to properly handle dynamic imports with AdonisJS path aliases:
+
+```typescript
+export default class MyJob extends Dispatchable {
+  static get $$filepath() {
+    return import.meta.url
+  }
+  
+  // ... rest of your job implementation
+}
+```
+
+Without this property, your jobs will fail to register with an error message.
+
 ### Automatic Discovery
 
 Jobs and cron tasks are automatically discovered and registered:
@@ -242,6 +274,10 @@ import Logger from '@adonisjs/core/services/logger'
 
 @inject()
 export default class ProcessUserDataJob extends Dispatchable {
+  static get $$filepath() {
+    return import.meta.url
+  }
+
   constructor(
     private userService: UserService,
     private db: Database,
@@ -276,6 +312,10 @@ Jobs support all pg-boss options through static properties:
 
 ```typescript
 export default class ProcessPaymentJob extends Dispatchable {
+  static get $$filepath() {
+    return import.meta.url
+  }
+
   static queue = 'payments'
 
   static workOptions = {
