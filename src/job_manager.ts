@@ -134,6 +134,9 @@ export class JobManager {
     const jobClass = await this.#resolveJob(job)
     const jobPath = this.#getJobPath(jobClass)
 
+    // Note: PgBoss SendOptions doesn't have a queue property
+    // Jobs are sent using the file path as job name following @rlanz pattern
+
     // Use filepath as job name (exactly like Romain does)
     return pgBoss.send(jobPath, payload, options)
   }
@@ -169,6 +172,15 @@ export class JobManager {
     options: PgBoss.ScheduleOptions = {}
   ): Promise<void> {
     const pgBoss = await this.#ensureStarted()
+
+    // Ensure the queue exists before scheduling
+    try {
+      await pgBoss.createQueue(queueName)
+      this.#logger.debug(`Created queue: ${queueName}`)
+    } catch (error) {
+      // Queue might already exist, that's fine
+      this.#logger.debug(`Queue ${queueName} already exists or creation failed: ${error.message}`)
+    }
 
     // PgBoss schedule params: (queueName, schedule, data, options)
     // We need to pass the job path in the data so the worker knows which job to execute
