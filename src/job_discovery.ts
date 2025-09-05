@@ -94,8 +94,8 @@ export class JobDiscovery {
               ...(CronClass.queue && { queue: CronClass.queue }),
             }
 
-            // Auto-register with PgBoss
-            await jobManager.schedule(CronClass, CronClass.schedule, {}, scheduleOptions)
+            // Auto-register with PgBoss using direct path (avoids circular dependency)
+            await jobManager.scheduleByPath(jobPath, CronClass.schedule, {}, scheduleOptions)
 
             // Also register worker for this cron job
             await jobManager.registerJob(jobPath, CronClass, {

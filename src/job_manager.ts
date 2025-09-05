@@ -159,6 +159,23 @@ export class JobManager {
   }
 
   /**
+   * Schedule a cron job using direct job path (for auto-discovery)
+   */
+  async scheduleByPath(
+    jobPath: string,
+    schedule: string,
+    payload: any = {},
+    options: PgBoss.ScheduleOptions = {}
+  ): Promise<void> {
+    const pgBoss = await this.#ensureStarted()
+
+    // Use filepath as job name (exactly like Romain does)
+    await pgBoss.schedule(jobPath, schedule, payload, options)
+
+    this.#logger.info(`Scheduled cron job: ${jobPath} with schedule: ${schedule}`)
+  }
+
+  /**
    * Start processing jobs from a specific queue (matches Romain's pattern)
    */
   process({ queueName }: { queueName?: string }) {
