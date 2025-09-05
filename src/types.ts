@@ -1,5 +1,6 @@
 import type PgBoss from 'pg-boss'
 import type { Dispatchable } from './dispatchable.js'
+import type { Schedulable } from './schedulable.js'
 
 export type {
   ConstructorOptions,
@@ -21,43 +22,35 @@ export type {
 } from 'pg-boss'
 
 /**
- * Extended WorkOptions that includes queue property
+ * Job handler constructor type (supports both Dispatchable and Schedulable)
  */
-export interface WorkOptions extends PgBoss.WorkOptions {
+export interface JobHandlerConstructor {
+  new (...args: any[]): Dispatchable | Schedulable
   queue?: string
+  workOptions?: PgBoss.WorkOptions
+  scheduleOptions?: PgBoss.ScheduleOptions
+  schedule?: string
 }
 
 /**
- * Extended ScheduleOptions that includes queue property
+ * Allowed job types for dispatch/schedule (class or lazy import)
  */
-export interface ScheduleOptions extends PgBoss.ScheduleOptions {
-  queue?: string
-}
+export type AllowedJobTypes =
+  | JobHandlerConstructor
+  | (() => Promise<{ default: JobHandlerConstructor }>)
 
 /**
- * Dispatchable job class constructor type
+ * Type for Dispatchable jobs only (for type-safe dispatch)
  */
-export interface JobClass {
-  new (...args: any[]): Dispatchable
-}
+export type DispatchableJobType =
+  | (new (...args: any[]) => Dispatchable)
+  | (() => Promise<{ default: new (...args: any[]) => Dispatchable }>)
 
 export interface PgBossConfig extends PgBoss.ConstructorOptions {
   /**
    * Graceful shutdown timeout in milliseconds
    */
   shutdownTimeoutMs?: number
-
-  /**
-   * Path to scan for dispatchable job classes (*_job.ts)
-   * Default: 'app/jobs'
-   */
-  jobsPath?: string
-
-  /**
-   * Path to scan for schedulable cron classes (*_cron.ts)
-   * Default: 'app/cron'
-   */
-  cronPath?: string
 
   /**
    * Available queue names for type safety
@@ -71,6 +64,22 @@ export interface PgBossConfig extends PgBoss.ConstructorOptions {
    * Default: 'default'
    */
   defaultQueue?: string
+
+  /**
+   * Configurable directory paths for job discovery
+   */
+  paths?: {
+    /**
+     * Path to Dispatchable jobs directory
+     * Default: 'app/jobs'
+     */
+    jobs?: string
+    /**
+     * Path to Schedulable jobs directory
+     * Default: 'app/cron'
+     */
+    cron?: string
+  }
 }
 
 /**

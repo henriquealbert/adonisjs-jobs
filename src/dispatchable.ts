@@ -25,14 +25,6 @@ export abstract class Dispatchable {
   }
 
   /**
-   * The file path of the job class - used for dynamic imports
-   * This should be set to import.meta.url in the job class
-   */
-  static get $$filepath(): string {
-    throw new Error('$$filepath must be implemented in the job class. Set it to: import.meta.url')
-  }
-
-  /**
    * Optional: Override the auto-generated job name
    * Default: kebab-case conversion of class name (CreateDatabaseJob → 'create-database')
    */

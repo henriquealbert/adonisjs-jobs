@@ -5,16 +5,23 @@
  */
 
 import PgBoss from 'pg-boss'
+import { isClass } from '@sindresorhus/is'
+import { RuntimeException } from '@poppinss/utils'
 import type { ApplicationService, LoggerService } from '@adonisjs/core/types'
-import type { PgBossConfig } from './types.js'
-import type { Dispatchable } from './dispatchable.js'
-import type { Schedulable } from './schedulable.js'
+import type {
+  PgBossConfig,
+  AllowedJobTypes,
+  JobHandlerConstructor,
+  DispatchableJobType,
+} from './types.js'
 
 export class JobManager {
   #app: ApplicationService
   #logger: LoggerService
   #config: PgBossConfig
   #pgBoss: PgBoss | null = null
+  #jobRegistry = new Map<JobHandlerConstructor, string>()
+  #workers = new Map<string, { JobClass: JobHandlerConstructor; options?: PgBoss.WorkOptions }>()
 
   constructor(config: PgBossConfig, logger: LoggerService, app: ApplicationService) {
     this.#config = config
@@ -44,139 +51,142 @@ export class JobManager {
   }
 
   /**
-   * Extract job name from class name
-   * CreateDatabaseJob -> 'create-database'
+   * Resolve a job class from either a class or lazy import
    */
-  private getJobName<T extends Dispatchable | Schedulable>(
-    JobClass: new (...args: any[]) => T
-  ): string {
-    // Check for explicit jobName first
-    const explicitName = (JobClass as unknown as { jobName?: string }).jobName
-    if (explicitName) {
-      return explicitName
+  async #resolveJob(job: AllowedJobTypes): Promise<JobHandlerConstructor> {
+    if (isClass(job)) {
+      return job as JobHandlerConstructor
     }
 
-    // Convert class name to kebab-case
-    let name = JobClass.name
-
-    // Remove 'Job' or 'Cron' suffix
-    name = name.replace(/Job$/, '').replace(/Cron$/, '')
-
-    // Convert PascalCase to kebab-case
-    return name
-      .replace(/([A-Z])/g, '-$1')
-      .toLowerCase()
-      .replace(/^-/, '')
+    const jobModule = await job()
+    return jobModule['default'] || jobModule
   }
 
   /**
-   * Dispatch a job with type-safe payload
-   * Jobs are already registered via auto-discovery
+   * Get the filepath from internal registry (no $$filepath needed!)
    */
-  async dispatch<T extends Dispatchable>(
-    JobClass: new (...args: any[]) => T,
-    payload: Parameters<T['handle']>[0],
-    options?: PgBoss.SendOptions
-  ): Promise<string | null> {
-    const pgBoss = await this.#ensureStarted()
-    const jobName = this.getJobName(JobClass)
-    return pgBoss.send(jobName, payload as object, options || {})
+  #getJobPath(job: JobHandlerConstructor): string {
+    const jobPath = this.#jobRegistry.get(job)
+    if (!jobPath) {
+      throw new RuntimeException(
+        `Job ${job.name} not registered. Is it in the configured job directories?`
+      )
+    }
+    return jobPath
   }
 
   /**
-   * Register a Dispatchable job (called by auto-discovery)
-   * This registers the worker that will process jobs
+   * Register a job with its filepath and optionally create a worker
    */
-  async registerDispatchable<T extends Dispatchable>(
-    JobClass: new () => T,
+  async registerJob(
+    jobPath: string,
+    JobClass: JobHandlerConstructor,
+    options?: PgBoss.WorkOptions
+  ): Promise<void> {
+    this.#jobRegistry.set(JobClass, jobPath)
+
+    if (options !== undefined) {
+      await this.registerWorker(jobPath, JobClass, options)
+    }
+  }
+
+  /**
+   * Register a worker for a specific job path
+   */
+  async registerWorker(
+    jobPath: string,
+    JobClass: JobHandlerConstructor,
     options?: PgBoss.WorkOptions
   ): Promise<void> {
     const pgBoss = await this.#ensureStarted()
-    const jobName = this.getJobName(JobClass)
-    const staticOptions = (JobClass as any).workOptions || {}
-    const queue = (JobClass as any).queue || 'default'
 
-    // Merge static options with provided options
-    const workOptions = { ...staticOptions, ...options, queue }
-
-    const handler = async (jobs: PgBoss.Job<object>[]) => {
+    await pgBoss.work(jobPath, options || {}, async (jobs: PgBoss.Job<any>[]) => {
       for (const job of jobs) {
-        try {
-          // Use container.make to get instance with dependency injection
-          const instance = await this.#app.container.make(JobClass)
-
-          // Inject internal dependencies (logger, etc.)
-          instance.$injectInternal({ logger: this.#logger })
-
-          // Use container.call to ensure proper context
-          await this.#app.container.call(instance, 'handle' as any, [job.data])
-        } catch (error) {
-          this.#logger.error(`Job ${jobName} failed:`, error)
-          throw error // Let pg-boss handle retry
-        }
+        const instance = await this.#app.container.make(JobClass)
+        await instance.handle(job.data)
       }
-    }
-
-    await pgBoss.work(jobName, workOptions, handler)
-    this.#logger.info(`Worker registered for job: ${jobName} on queue: ${queue}`)
-  }
-
-  /**
-   * Register a Schedulable cron job (called by auto-discovery)
-   * This sets up both the worker and the schedule
-   */
-  async registerSchedulable<T extends Schedulable>(
-    CronClass: new () => T,
-    options?: PgBoss.ScheduleOptions
-  ): Promise<void> {
-    const pgBoss = await this.#ensureStarted()
-    const jobName = this.getJobName(CronClass)
-    const schedule = (CronClass as unknown as { schedule?: string }).schedule
-    const queue = (CronClass as any).queue || 'default'
-    const scheduleOptions = (CronClass as any).scheduleOptions || {}
-
-    if (!schedule) {
-      throw new Error(`Schedulable class ${CronClass.name} must have static schedule property`)
-    }
-
-    // Register worker for cron execution
-    const handler = async () => {
-      try {
-        // Use container.make to get instance with dependency injection
-        const instance = await this.#app.container.make(CronClass)
-
-        // Inject internal dependencies (logger, etc.)
-        instance.$injectInternal({ logger: this.#logger })
-
-        // Use container.call to ensure proper context
-        await this.#app.container.call(instance, 'handle' as any, [])
-      } catch (error) {
-        this.#logger.error(`Cron job ${jobName} failed:`, error)
-        throw error
-      }
-    }
-
-    await pgBoss.work(jobName, {}, async () => {
-      await handler()
     })
 
-    // Schedule the cron job
-    const finalOptions = { ...scheduleOptions, ...options, queue }
-    await pgBoss.schedule(jobName, schedule, {}, finalOptions)
-    this.#logger.info(
-      `Scheduled cron job: ${jobName} with schedule: ${schedule} on queue: ${queue}`
-    )
+    this.#workers.set(jobPath, { JobClass, options })
+    this.#logger.info(`Registered worker for job: ${jobPath}`)
   }
 
   /**
-   * Start processing jobs from a specific queue
-   * This is used by the job:listen command
+   * Instantiate a job class with dependency injection
    */
-  async process({ queueName = 'default' }: { queueName?: string } = {}) {
-    await this.#ensureStarted()
-    this.#logger.info(`Processing queue [${queueName}]...`)
-    // The actual processing is handled by registered workers
-    // This method just ensures PgBoss is started
+  async #instantiateJob(job: { name: string; data: any }) {
+    // Job name IS the filepath (like Romain's approach)
+    const { default: jobClass } = await import(job.name)
+    const jobInstance = await this.#app.container.make(jobClass)
+    jobInstance.$injectInternal({ job, logger: this.#logger })
+    return jobInstance
+  }
+
+  /**
+   * Dispatch a job with type-safe payload (Dispatchable only)
+   */
+  async dispatch<T extends DispatchableJobType>(
+    job: T,
+    payload: any,
+    options: PgBoss.SendOptions = {}
+  ): Promise<string | null> {
+    const pgBoss = await this.#ensureStarted()
+
+    const jobClass = await this.#resolveJob(job)
+    const jobPath = this.#getJobPath(jobClass)
+
+    // Use filepath as job name (exactly like Romain does)
+    return pgBoss.send(jobPath, payload, options)
+  }
+
+  /**
+   * Schedule a cron job
+   */
+  async schedule<T extends AllowedJobTypes>(
+    job: T,
+    schedule: string,
+    payload: any = {},
+    options: PgBoss.ScheduleOptions = {}
+  ): Promise<void> {
+    const pgBoss = await this.#ensureStarted()
+
+    const jobClass = await this.#resolveJob(job)
+    const jobPath = this.#getJobPath(jobClass)
+
+    // Use filepath as job name (exactly like Romain does)
+    await pgBoss.schedule(jobPath, schedule, payload, options)
+
+    this.#logger.info(`Scheduled cron job: ${jobPath} with schedule: ${schedule}`)
+  }
+
+  /**
+   * Start processing jobs from a specific queue (matches Romain's pattern)
+   */
+  process({ queueName }: { queueName?: string }) {
+    this.#logger.info(`Queue [${queueName || 'default'}] processing started...`)
+
+    // Create a worker for all jobs (PgBoss pattern)
+    this.#ensureStarted().then(async (pgBoss) => {
+      await pgBoss.work('*', async (jobs: PgBoss.Job<any>[]) => {
+        for (const job of jobs) {
+          try {
+            // Job name IS the filepath (like Romain's approach)
+            const jobInstance = await this.#instantiateJob({
+              name: job.name,
+              data: job.data,
+            })
+
+            this.#logger.info(`Job ${job.name} started`)
+            await this.#app.container.call(jobInstance, 'handle', [job.data])
+            this.#logger.info(`Job ${job.name} finished`)
+          } catch (error) {
+            this.#logger.error(`Job ${job.name} failed:`, error)
+            throw error
+          }
+        }
+      })
+    })
+
     return this
   }
 
