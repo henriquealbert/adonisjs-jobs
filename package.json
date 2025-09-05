@@ -1,7 +1,7 @@
 {
   "name": "@hschmaiske/jobs",
   "description": "Job queue and scheduler integration for AdonisJS applications",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "engines": {
     "node": ">=20.6.0"
   },
