@@ -26,6 +26,13 @@ export default class JobListen extends BaseCommand {
     const router = await this.app.container.make('router')
     router.commit()
 
+    // Trigger auto-discovery before starting job processing
+    this.logger.info('🔍 Discovering jobs...')
+    const { JobDiscovery } = await import('../src/job_discovery.js')
+    const discovery = new JobDiscovery(this.app)
+    await discovery.discoverAll(jobs)
+    this.logger.info('✅ Job discovery completed')
+
     let shouldListenOn = this.parsed.flags.queue as string[]
 
     if (!shouldListenOn) {
