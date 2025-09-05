@@ -196,9 +196,21 @@ export class JobManager {
     this.#logger.info(`  Options:`, options)
 
     try {
-      // Schedule TO the queue (following official PgBoss examples)
-      await pgBoss.schedule(queueName, schedule, jobData, options)
-      this.#logger.info(`✅ Successfully scheduled cron job: ${jobPath} to queue: ${queueName}`)
+      // TEMPORARY: Let's schedule each cron job individually to see what happens
+      // Use job file name as unique schedule name
+      const fileName =
+        jobPath
+          .split('/')
+          .pop()
+          ?.replace(/\.(ts|js)$/, '') || 'unknown'
+      const uniqueScheduleName = fileName
+
+      this.#logger.info(`  Scheduling as unique name: ${uniqueScheduleName}`)
+
+      await pgBoss.schedule(uniqueScheduleName, schedule, jobData, options)
+      this.#logger.info(
+        `✅ Successfully scheduled "${uniqueScheduleName}" with schedule: ${schedule}`
+      )
     } catch (error) {
       this.#logger.error(`❌ Failed to schedule cron job: ${jobPath}`)
       this.#logger.error(`  Error: ${error.message}`)
@@ -214,15 +226,16 @@ export class JobManager {
     this.#logger.info(`Queue [${queueName || 'default'}] processing started...`)
 
     this.#ensureStarted().then(async (pgBoss) => {
-      const actualQueueName = queueName || 'default'
+      // TEMPORARY: Since we're scheduling with individual names, listen to all jobs with '*'
+      this.#logger.info('Starting worker to listen for all scheduled jobs')
 
-      await pgBoss.work(actualQueueName, async (jobs: PgBoss.Job<any>[]) => {
+      await pgBoss.work('*', async (jobs: PgBoss.Job<any>[]) => {
         for (const job of jobs) {
           try {
             // For scheduled jobs, job path is in the data
             const jobPath = job.data.__jobPath || job.name
 
-            this.#logger.info(`Processing job from queue [${actualQueueName}]: ${jobPath}`)
+            this.#logger.info(`Processing scheduled job [${job.name}]: ${jobPath}`)
 
             const jobInstance = await this.#instantiateJob({
               name: jobPath,
