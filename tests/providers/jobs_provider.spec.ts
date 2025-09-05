@@ -6,17 +6,6 @@ import { Dispatchable } from '../../src/dispatchable.js'
 import { Schedulable } from '../../src/schedulable.js'
 import type { PgBossConfig } from '../../src/types.js'
 
-// Mock FsLoader since we're testing provider functionality
-const mockFsLoader = {
-  getMetaData: () => Promise.resolve([]),
-}
-
-// Mock the FsLoader import
-const originalFsLoader = globalThis.require?.cache
-if (originalFsLoader) {
-  delete originalFsLoader[require.resolve('@adonisjs/core/ace')]
-}
-
 // Mock logger
 const createMockLogger = (): LoggerService =>
   ({
@@ -254,40 +243,21 @@ test.group('JobsProvider', () => {
     assert.isTrue(true)
   })
 
-  test('should have boot method for auto-discovery', ({ assert }) => {
+  test('should have boot method', ({ assert }) => {
     const app = createMockApp('test')
     const provider = new JobsProvider(app)
 
-    // Should have boot method
+    // Should have boot method (even if it does nothing)
     assert.isFunction(provider.boot)
   })
 
-  test('should handle boot method without throwing when no jobs exist', async ({ assert }) => {
-    // Mock empty job directories
-    const jobsConfig: PgBossConfig = {
-      paths: {
-        jobs: 'empty/jobs',
-        cron: 'empty/cron',
-      },
-    }
-
-    const app = createMockApp('test', { jobs: jobsConfig })
+  test('should handle boot method without throwing', async ({ assert }) => {
+    const app = createMockApp('test')
     const provider = new JobsProvider(app)
 
     provider.register()
 
-    // Boot should handle empty directories gracefully
-    await assert.doesNotReject(() => provider.boot())
-  })
-
-  test('should handle default paths when none are configured', async ({ assert }) => {
-    const jobsConfig: PgBossConfig = {}
-    const app = createMockApp('test', { jobs: jobsConfig })
-    const provider = new JobsProvider(app)
-
-    provider.register()
-
-    // Should use default paths and not throw
+    // Boot should not throw (even though it does nothing)
     await assert.doesNotReject(() => provider.boot())
   })
 
