@@ -44,12 +44,8 @@ export class JobDiscovery {
             // Construct importable path from discovered file (no $$filepath needed!)
             const jobPath = pathToFileURL(filePath).href
 
-            // Pre-register worker for this specific job path
-            const workOptions = {
-              batchSize: 1, // Default batchSize
-              ...(JobClass.workOptions || {}), // Apply any custom workOptions
-            }
-            await jobManager.registerJob(jobPath, JobClass, workOptions)
+            // Register job class for instantiation (no individual worker needed - queue-based processing)
+            await jobManager.registerJob(jobPath, JobClass)
           }
         } catch (error) {
           // Skip files that can't be imported (not valid JS/TS modules)
@@ -104,12 +100,8 @@ export class JobDiscovery {
               scheduleOptions
             )
 
-            // Also register worker for this cron job
-            const workOptions = {
-              batchSize: 1, // Default batchSize
-              ...(CronClass.workOptions || {}), // Apply any custom workOptions
-            }
-            await jobManager.registerJob(jobPath, CronClass, workOptions)
+            // Register job class for instantiation (no individual worker needed - queue-based processing)
+            await jobManager.registerJob(jobPath, CronClass)
 
             this.logger.log(`✅ Registered cron job: ${CronClass.name}`)
           } else {
