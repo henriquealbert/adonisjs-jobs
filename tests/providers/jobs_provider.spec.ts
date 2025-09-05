@@ -3,7 +3,19 @@ import type { ApplicationService, LoggerService } from '@adonisjs/core/types'
 import JobsProvider from '../../providers/jobs_provider.js'
 import { JobManager } from '../../src/job_manager.js'
 import { Dispatchable } from '../../src/dispatchable.js'
+import { Schedulable } from '../../src/schedulable.js'
 import type { PgBossConfig } from '../../src/types.js'
+
+// Mock FsLoader since we're testing provider functionality
+const mockFsLoader = {
+  getMetaData: () => Promise.resolve([]),
+}
+
+// Mock the FsLoader import
+const originalFsLoader = globalThis.require?.cache
+if (originalFsLoader) {
+  delete originalFsLoader[require.resolve('@adonisjs/core/ace')]
+}
 
 // Mock logger
 const createMockLogger = (): LoggerService =>
@@ -30,6 +42,7 @@ const createMockApp = (
 
   return {
     getEnvironment: () => environment,
+    makePath: (path: string) => `/test/app/root/${path}`,
     config: {
       get: <T>(key: string, defaultValue: T): T => (config[key] as T) || defaultValue,
     },
@@ -170,6 +183,8 @@ test.group('JobsProvider', () => {
 
     // Should have JobManager interface
     assert.isFunction((jobs as JobManager).dispatch)
+    assert.isFunction((jobs as JobManager).schedule)
+    assert.isFunction((jobs as JobManager).process)
     assert.isFunction((jobs as JobManager).start)
     assert.isFunction((jobs as JobManager).stop)
   })
@@ -237,5 +252,54 @@ test.group('JobsProvider', () => {
 
     // Should work correctly
     assert.isTrue(true)
+  })
+
+  test('should have boot method for auto-discovery', ({ assert }) => {
+    const app = createMockApp('test')
+    const provider = new JobsProvider(app)
+
+    // Should have boot method
+    assert.isFunction(provider.boot)
+  })
+
+  test('should handle boot method without throwing when no jobs exist', async ({ assert }) => {
+    // Mock empty job directories
+    const jobsConfig: PgBossConfig = {
+      paths: {
+        jobs: 'empty/jobs',
+        cron: 'empty/cron',
+      },
+    }
+
+    const app = createMockApp('test', { jobs: jobsConfig })
+    const provider = new JobsProvider(app)
+
+    provider.register()
+
+    // Boot should handle empty directories gracefully
+    await assert.doesNotReject(() => provider.boot())
+  })
+
+  test('should handle default paths when none are configured', async ({ assert }) => {
+    const jobsConfig: PgBossConfig = {}
+    const app = createMockApp('test', { jobs: jobsConfig })
+    const provider = new JobsProvider(app)
+
+    provider.register()
+
+    // Should use default paths and not throw
+    await assert.doesNotReject(() => provider.boot())
+  })
+
+  test('should support complete lifecycle with boot', async ({ assert }) => {
+    const app = createMockApp('test')
+    const provider = new JobsProvider(app)
+
+    // Complete lifecycle with boot should work without errors
+    provider.register()
+    await provider.boot()
+    await provider.shutdown()
+
+    assert.isTrue(true) // If we reach here, lifecycle completed successfully
   })
 })
