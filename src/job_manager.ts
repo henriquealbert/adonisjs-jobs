@@ -182,22 +182,28 @@ export class JobManager {
       throw error
     }
 
-    // PgBoss schedule params: (queueName, schedule, data, options)
-    // We need to pass the job path in the data so the worker knows which job to execute
+    // PgBoss schedule params: (jobName, schedule, data, options)
+    // Job name should be the file path (like @rlanz/bull-queue pattern)
     const jobData = {
       ...payload,
-      __jobPath: jobPath, // Include job path in payload
+    }
+
+    // If queue is specified, pass it in options
+    const scheduleOptions = {
+      ...options,
+      ...(queueName !== 'default' && { queue: queueName }), // Only add queue if not default
     }
 
     this.#logger.info(`Attempting to schedule: ${jobPath}`)
     this.#logger.info(`  Queue: ${queueName}`)
     this.#logger.info(`  Schedule: ${schedule}`)
     this.#logger.info(`  Data:`, jobData)
-    this.#logger.info(`  Options:`, options)
+    this.#logger.info(`  Options:`, scheduleOptions)
 
     try {
-      await pgBoss.schedule(queueName, schedule, jobData, options)
-      this.#logger.info(`✅ Successfully scheduled cron job: ${jobPath} in queue: ${queueName}`)
+      // Schedule with job name = file path (following @rlanz pattern)
+      await pgBoss.schedule(jobPath, schedule, jobData, scheduleOptions)
+      this.#logger.info(`✅ Successfully scheduled cron job: ${jobPath}`)
     } catch (error) {
       this.#logger.error(`❌ Failed to schedule cron job: ${jobPath}`)
       this.#logger.error(`  Error: ${error.message}`)
@@ -212,12 +218,16 @@ export class JobManager {
   process({ queueName }: { queueName?: string }) {
     this.#logger.info(`Queue [${queueName || 'default'}] processing started...`)
 
-    // Create a worker for all jobs (PgBoss pattern)
+    // Create a worker for the specific queue
     this.#ensureStarted().then(async (pgBoss) => {
-      await pgBoss.work('*', async (jobs: PgBoss.Job<any>[]) => {
+      const actualQueueName = queueName || 'default'
+
+      await pgBoss.work(actualQueueName, async (jobs: PgBoss.Job<any>[]) => {
         for (const job of jobs) {
           try {
-            // Job name IS the filepath (like Romain's approach)
+            // For scheduled jobs, the job name contains the file path
+            this.#logger.info(`Processing job: ${job.name}`)
+
             const jobInstance = await this.#instantiateJob({
               name: job.name,
               data: job.data,
