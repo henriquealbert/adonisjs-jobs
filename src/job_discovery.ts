@@ -45,11 +45,11 @@ export class JobDiscovery {
             const jobPath = pathToFileURL(filePath).href
 
             // Pre-register worker for this specific job path
-            await jobManager.registerJob(jobPath, JobClass, {
-              teamSize: JobClass.workOptions?.teamSize,
-              batchSize: JobClass.workOptions?.batchSize,
-              ...JobClass.workOptions,
-            })
+            const workOptions = {
+              batchSize: 1, // Default batchSize
+              ...(JobClass.workOptions || {}), // Apply any custom workOptions
+            }
+            await jobManager.registerJob(jobPath, JobClass, workOptions)
           }
         } catch (error) {
           // Skip files that can't be imported (not valid JS/TS modules)
@@ -105,11 +105,11 @@ export class JobDiscovery {
             )
 
             // Also register worker for this cron job
-            await jobManager.registerJob(jobPath, CronClass, {
-              teamSize: CronClass.workOptions?.teamSize,
-              batchSize: CronClass.workOptions?.batchSize,
-              ...CronClass.workOptions,
-            })
+            const workOptions = {
+              batchSize: 1, // Default batchSize
+              ...(CronClass.workOptions || {}), // Apply any custom workOptions
+            }
+            await jobManager.registerJob(jobPath, CronClass, workOptions)
 
             this.logger.log(`✅ Registered cron job: ${CronClass.name}`)
           } else {

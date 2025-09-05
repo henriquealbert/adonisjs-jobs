@@ -176,10 +176,10 @@ export class JobManager {
     // Ensure the queue exists before scheduling
     try {
       await pgBoss.createQueue(queueName)
-      this.#logger.debug(`Created queue: ${queueName}`)
+      this.#logger.info(`Created/verified queue: ${queueName}`)
     } catch (error) {
-      // Queue might already exist, that's fine
-      this.#logger.debug(`Queue ${queueName} already exists or creation failed: ${error.message}`)
+      this.#logger.warn(`Queue creation failed for ${queueName}: ${error.message}`)
+      throw error
     }
 
     // PgBoss schedule params: (queueName, schedule, data, options)
@@ -189,11 +189,21 @@ export class JobManager {
       __jobPath: jobPath, // Include job path in payload
     }
 
-    await pgBoss.schedule(queueName, schedule, jobData, options)
+    this.#logger.info(`Attempting to schedule: ${jobPath}`)
+    this.#logger.info(`  Queue: ${queueName}`)
+    this.#logger.info(`  Schedule: ${schedule}`)
+    this.#logger.info(`  Data:`, jobData)
+    this.#logger.info(`  Options:`, options)
 
-    this.#logger.info(
-      `Scheduled cron job: ${jobPath} in queue: ${queueName} with schedule: ${schedule}`
-    )
+    try {
+      await pgBoss.schedule(queueName, schedule, jobData, options)
+      this.#logger.info(`✅ Successfully scheduled cron job: ${jobPath} in queue: ${queueName}`)
+    } catch (error) {
+      this.#logger.error(`❌ Failed to schedule cron job: ${jobPath}`)
+      this.#logger.error(`  Error: ${error.message}`)
+      this.#logger.error(`  Stack:`, error.stack)
+      throw error
+    }
   }
 
   /**
