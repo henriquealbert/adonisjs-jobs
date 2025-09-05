@@ -5,5 +5,12 @@
     "outDir": "./build",
     "esModuleInterop": true
   },
-  "exclude": ["node_modules", "build", "tests", "coverage", "adonis-bull-queue", "adonisjs-scheduler"]
+  "exclude": [
+    "node_modules",
+    "build",
+    "tests",
+    "coverage",
+    "adonis-bull-queue",
+    "adonisjs-scheduler"
+  ]
 }
