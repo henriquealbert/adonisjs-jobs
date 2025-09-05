@@ -164,15 +164,24 @@ export class JobManager {
   async scheduleByPath(
     jobPath: string,
     schedule: string,
+    queueName: string,
     payload: any = {},
     options: PgBoss.ScheduleOptions = {}
   ): Promise<void> {
     const pgBoss = await this.#ensureStarted()
 
-    // Use filepath as job name (exactly like Romain does)
-    await pgBoss.schedule(jobPath, schedule, payload, options)
+    // PgBoss schedule params: (queueName, schedule, data, options)
+    // We need to pass the job path in the data so the worker knows which job to execute
+    const jobData = {
+      ...payload,
+      __jobPath: jobPath, // Include job path in payload
+    }
 
-    this.#logger.info(`Scheduled cron job: ${jobPath} with schedule: ${schedule}`)
+    await pgBoss.schedule(queueName, schedule, jobData, options)
+
+    this.#logger.info(
+      `Scheduled cron job: ${jobPath} in queue: ${queueName} with schedule: ${schedule}`
+    )
   }
 
   /**

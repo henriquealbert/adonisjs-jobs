@@ -95,7 +95,14 @@ export class JobDiscovery {
             }
 
             // Auto-register with PgBoss using direct path (avoids circular dependency)
-            await jobManager.scheduleByPath(jobPath, CronClass.schedule, {}, scheduleOptions)
+            const queueName = CronClass.queue || 'default'
+            await jobManager.scheduleByPath(
+              jobPath,
+              CronClass.schedule,
+              queueName,
+              {},
+              scheduleOptions
+            )
 
             // Also register worker for this cron job
             await jobManager.registerJob(jobPath, CronClass, {
